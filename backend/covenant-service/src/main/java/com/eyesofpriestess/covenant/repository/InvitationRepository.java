@@ -1,0 +1,21 @@
+package com.eyesofpriestess.covenant.repository;
+
+import com.eyesofpriestess.covenant.entity.CovenantInvitation;
+import io.quarkus.hibernate.reactive.panache.PanacheRepositoryBase;
+import io.smallrye.mutiny.Uni;
+import jakarta.enterprise.context.ApplicationScoped;
+
+import java.util.Optional;
+import java.util.UUID;
+
+@ApplicationScoped
+public class InvitationRepository implements PanacheRepositoryBase<CovenantInvitation, UUID> {
+
+    public Uni<Optional<CovenantInvitation>> findByCode(String code) {
+        return find("invitationCode", code).firstResultOptional();
+    }
+
+    public Uni<Optional<CovenantInvitation>> findByCovenantId(UUID covenantId) {
+        return find("covenantId", covenantId).firstResultOptional();
+    }
+}

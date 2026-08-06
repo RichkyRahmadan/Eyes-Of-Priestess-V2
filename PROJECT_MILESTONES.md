@@ -82,13 +82,16 @@
 
 ---
 
-### 🚩 Milestone 4: Covenant Sanctum (Automated Escrow Engine)
-- [ ] Implement Covenant creation (`POST /covenant`), locking treasury from available to sealed
-- [ ] Implement Accept/Reject Covenant flow
-- [ ] Implement Oath Fulfillment (delivery proof upload & status transition)
-- [ ] Implement Confirm Fulfillment (escrow release to seller treasury minus 1% fee)
-- [ ] Implement Auto-Release timeout cron job (Quarkus Scheduled task)
-- [ ] **Git Commit & Push to GitHub**
+### 🚩 Milestone 4: Covenant Sanctum (Escrow Engine) ✅
+- [x] Entity layer: `Covenant.java` (Escrow state machine: FORGED -> ACCEPTED -> SEALED -> DELIVERED -> FULFILLED | DISPUTED | CANCELLED), `CovenantInvitation.java`
+- [x] Repository layer: `CovenantRepository.java`, `InvitationRepository.java`
+- [x] DTO layer: Request & Response DTOs (`ForgeCovenantRequest`, `AcceptCovenantRequest`, `DeliverCovenantRequest`, `DisputeCovenantRequest`, `CovenantResponse`, `InvitationResponse`)
+- [x] Downstream REST Client: `VaultClient.java` (invokes Vault Sanctum `/api/v1/vault/internal/escrow/*`)
+- [x] Service layer: `CovenantService.java` (Room creation, invitation code generation, acceptance, escrow lock, delivery declaration, confirmation payout release, dispute initiation, cancellation)
+- [x] Background Scheduler: `AutoReleaseScheduler.java` (Cron job for auto-fulfilling timed-out DELIVERED covenants)
+- [x] Event Messaging: Outbound RabbitMQ events `covenant-fulfilled` and `covenant-broken`
+- [x] REST Resource: `CovenantResource.java` (`/api/v1/covenants` with 9 endpoints)
+- [x] **Git Commit & Push to GitHub**
 
 ---
 
