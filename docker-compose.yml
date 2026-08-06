@@ -1,0 +1,281 @@
+version: '3.8'
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# EyesOfPriestess — The Covenant Protocol
+# Docker Compose: Full Sanctum Network Orchestration
+# ═══════════════════════════════════════════════════════════════════════════════
+
+services:
+
+  # ─── INFRASTRUCTURE ────────────────────────────────────────────────────────
+
+  # The Archive (PostgreSQL 15)
+  postgres:
+    image: postgres:15-alpine
+    container_name: eop-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: eyesofpriestess
+      POSTGRES_USER: priestess
+      POSTGRES_PASSWORD: originium_seal
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/init-scripts:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U priestess -d eyesofpriestess"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - sanctum-network
+
+  # The Crystal (Redis 7)
+  redis:
+    image: redis:7-alpine
+    container_name: eop-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --save 60 1
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - sanctum-network
+
+  # The Aether (RabbitMQ 3 + Management UI)
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: eop-rabbitmq
+    restart: unless-stopped
+    ports:
+      - "5672:5672"
+      - "15672:15672"    # Management UI: http://localhost:15672
+    environment:
+      RABBITMQ_DEFAULT_USER: priestess
+      RABBITMQ_DEFAULT_PASS: originium_seal
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+    networks:
+      - sanctum-network
+
+  # ─── FIVE SANCTUMS (BACKEND MICROSERVICES) ─────────────────────────────────
+
+  # Seal Sanctum — Authentication & Identity (port 8081)
+  seal-service:
+    build:
+      context: ./backend/seal-service
+      dockerfile: src/main/docker/Dockerfile.jvm
+    container_name: eop-seal
+    restart: unless-stopped
+    environment:
+      QUARKUS_DATASOURCE_REACTIVE_URL: postgresql://postgres:5432/eyesofpriestess
+      QUARKUS_DATASOURCE_USERNAME: priestess
+      QUARKUS_DATASOURCE_PASSWORD: originium_seal
+      QUARKUS_REDIS_HOSTS: redis://redis:6379
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USERNAME: priestess
+      RABBITMQ_PASSWORD: originium_seal
+      JWT_SECRET: ${JWT_SECRET:-originium-256-bit-secret-key-change-in-production}
+      JWT_ACCESS_EXPIRY: 900       # 15 minutes
+      JWT_REFRESH_EXPIRY: 604800   # 7 days
+      QUARKUS_HTTP_PORT: 8081
+    ports:
+      - "8081:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - sanctum-network
+
+  # Vault Sanctum — Treasury & Payments (port 8082)
+  vault-service:
+    build:
+      context: ./backend/vault-service
+      dockerfile: src/main/docker/Dockerfile.jvm
+    container_name: eop-vault
+    restart: unless-stopped
+    environment:
+      QUARKUS_DATASOURCE_REACTIVE_URL: postgresql://postgres:5432/eyesofpriestess
+      QUARKUS_DATASOURCE_USERNAME: priestess
+      QUARKUS_DATASOURCE_PASSWORD: originium_seal
+      QUARKUS_REDIS_HOSTS: redis://redis:6379
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USERNAME: priestess
+      RABBITMQ_PASSWORD: originium_seal
+      SEAL_SERVICE_URL: http://seal-service:8081
+      MIDTRANS_SERVER_KEY: ${MIDTRANS_SERVER_KEY:-}
+      MIDTRANS_CLIENT_KEY: ${MIDTRANS_CLIENT_KEY:-}
+      XENDIT_API_KEY: ${XENDIT_API_KEY:-}
+      QUARKUS_HTTP_PORT: 8082
+    ports:
+      - "8082:8082"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - sanctum-network
+
+  # Covenant Sanctum — Escrow Room Engine (port 8083)
+  covenant-service:
+    build:
+      context: ./backend/covenant-service
+      dockerfile: src/main/docker/Dockerfile.jvm
+    container_name: eop-covenant
+    restart: unless-stopped
+    environment:
+      QUARKUS_DATASOURCE_REACTIVE_URL: postgresql://postgres:5432/eyesofpriestess
+      QUARKUS_DATASOURCE_USERNAME: priestess
+      QUARKUS_DATASOURCE_PASSWORD: originium_seal
+      QUARKUS_REDIS_HOSTS: redis://redis:6379
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USERNAME: priestess
+      RABBITMQ_PASSWORD: originium_seal
+      SEAL_SERVICE_URL: http://seal-service:8081
+      VAULT_SERVICE_URL: http://vault-service:8082
+      QUARKUS_HTTP_PORT: 8083
+    ports:
+      - "8083:8083"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - sanctum-network
+
+  # Communion Sanctum — Real-time Chat via WebSocket (port 8084)
+  communion-service:
+    build:
+      context: ./backend/communion-service
+      dockerfile: src/main/docker/Dockerfile.jvm
+    container_name: eop-communion
+    restart: unless-stopped
+    environment:
+      QUARKUS_DATASOURCE_REACTIVE_URL: postgresql://postgres:5432/eyesofpriestess
+      QUARKUS_DATASOURCE_USERNAME: priestess
+      QUARKUS_DATASOURCE_PASSWORD: originium_seal
+      SEAL_SERVICE_URL: http://seal-service:8081
+      QUARKUS_HTTP_PORT: 8084
+    ports:
+      - "8084:8084"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - sanctum-network
+
+  # Judgment Sanctum — Dispute Resolution (port 8085)
+  judgment-service:
+    build:
+      context: ./backend/judgment-service
+      dockerfile: src/main/docker/Dockerfile.jvm
+    container_name: eop-judgment
+    restart: unless-stopped
+    environment:
+      QUARKUS_DATASOURCE_REACTIVE_URL: postgresql://postgres:5432/eyesofpriestess
+      QUARKUS_DATASOURCE_USERNAME: priestess
+      QUARKUS_DATASOURCE_PASSWORD: originium_seal
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USERNAME: priestess
+      RABBITMQ_PASSWORD: originium_seal
+      SEAL_SERVICE_URL: http://seal-service:8081
+      VAULT_SERVICE_URL: http://vault-service:8082
+      QUARKUS_HTTP_PORT: 8085
+    ports:
+      - "8085:8085"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - sanctum-network
+
+  # ─── THE VEIL (API GATEWAY) ─────────────────────────────────────────────────
+
+  the-veil:
+    build:
+      context: ./backend/the-veil
+      dockerfile: src/main/docker/Dockerfile.jvm
+    container_name: eop-veil
+    restart: unless-stopped
+    environment:
+      SEAL_SERVICE_URL: http://seal-service:8081
+      VAULT_SERVICE_URL: http://vault-service:8082
+      COVENANT_SERVICE_URL: http://covenant-service:8083
+      COMMUNION_SERVICE_URL: http://communion-service:8084
+      JUDGMENT_SERVICE_URL: http://judgment-service:8085
+      QUARKUS_REDIS_HOSTS: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET:-originium-256-bit-secret-key-change-in-production}
+      QUARKUS_HTTP_PORT: 8080
+      QUARKUS_HTTP_CORS: true
+      QUARKUS_HTTP_CORS_ORIGINS: http://localhost:3000,http://localhost:5173
+    ports:
+      - "8080:8080"
+    depends_on:
+      - seal-service
+      - vault-service
+      - covenant-service
+      - communion-service
+      - judgment-service
+    networks:
+      - sanctum-network
+
+  # ─── THE SANCTUM (FRONTEND) ─────────────────────────────────────────────────
+
+  the-sanctum:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: eop-sanctum
+    restart: unless-stopped
+    environment:
+      PUBLIC_API_URL: http://localhost:8080
+      NODE_ENV: production
+    ports:
+      - "3000:3000"
+    depends_on:
+      - the-veil
+    networks:
+      - sanctum-network
+
+# ─── NETWORKS ───────────────────────────────────────────────────────────────
+networks:
+  sanctum-network:
+    driver: bridge
+    name: eop-sanctum-network
+
+# ─── VOLUMES ────────────────────────────────────────────────────────────────
+volumes:
+  postgres_data:
+    name: eop-postgres-data
+  redis_data:
+    name: eop-redis-data
+  rabbitmq_data:
+    name: eop-rabbitmq-data

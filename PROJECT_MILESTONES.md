@@ -45,11 +45,14 @@
 
 ---
 
-### 🚩 Milestone 1: Environment & Infrastructure Orchestration
-- [ ] Configure `docker-compose.yml` for PostgreSQL 15 (5 logical schemas: `seal`, `vault`, `covenant`, `communion`, `judgment`), Redis 7, and RabbitMQ
-- [ ] Create PostgreSQL initialization scripts (`init-schemas.sql`)
-- [ ] Setup base Maven multi-module / Quarkus service structure for all 5 Sanctums & The Veil gateway
-- [ ] **Git Commit & Push to GitHub**
+### 🚩 Milestone 1: Environment & Infrastructure Orchestration ✅
+- [x] Configure `docker-compose.yml` for PostgreSQL 15 (5 logical schemas: `seal`, `vault`, `covenant`, `communion`, `judgment`), Redis 7, and RabbitMQ
+- [x] Create PostgreSQL initialization scripts (`backend/init-scripts/01-init-schemas.sql`) — all tables, indexes, triggers, views, seed Oracle pilgrim
+- [x] Setup `.env.example` with all required environment variables
+- [x] Setup Maven multi-module parent POM (`backend/pom.xml`) with Quarkus 3.8.4 BOM
+- [x] Create skeleton `pom.xml` for all 6 Quarkus modules (the-veil, seal, vault, covenant, communion, judgment)
+- [x] Create `application.properties` for each service with DB schema, JWT, Redis & RabbitMQ configs
+- [x] **Git Commit & Push to GitHub**
 
 ---
 
