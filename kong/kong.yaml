@@ -1,0 +1,252 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# Kong API Gateway — DB-less Declarative Configuration
+# EyesOfPriestess: The Covenant Protocol
+#
+# Mode: DB-less (no database required for Kong itself)
+# Format: Kong Declarative Config v3.0
+#
+# Routes Architecture:
+#   :8080/api/v1/seal/*       → seal-service:8081
+#   :8080/api/v1/vault/*      → vault-service:8082
+#   :8080/api/v1/covenant/*   → covenant-service:8083
+#   :8080/api/v1/communion/*  → communion-service:8084
+#   :8080/api/v1/judgment/*   → judgment-service:8085
+# ═══════════════════════════════════════════════════════════════════════════════
+_format_version: "3.0"
+_transform: true
+
+# ─── SERVICES (Upstream Sanctums) ─────────────────────────────────────────────
+services:
+
+  # ── Seal Sanctum ────────────────────────────────────────────────────────────
+  - name: seal-service
+    url: http://seal-service:8081
+    connect_timeout: 10000
+    read_timeout: 30000
+    write_timeout: 30000
+    routes:
+      # Public auth routes — no JWT required
+      - name: seal-public
+        paths:
+          - ~/api/v1/seal/(forge|rite|renew|omen)
+        strip_path: false
+        methods: [GET, POST, OPTIONS]
+        regex_priority: 10
+
+      # Protected profile/session routes
+      - name: seal-protected
+        paths:
+          - /api/v1/seal
+        strip_path: false
+        methods: [GET, POST, PUT, DELETE, OPTIONS]
+        regex_priority: 0
+
+    plugins:
+      - name: cors
+        config:
+          origins:
+            - "http://localhost:3000"
+            - "http://localhost:5173"
+          methods:
+            - GET
+            - POST
+            - PUT
+            - DELETE
+            - PATCH
+            - OPTIONS
+          headers:
+            - Authorization
+            - Content-Type
+            - Covenant-Key
+            - X-Request-ID
+          exposed_headers:
+            - X-Request-ID
+          credentials: true
+          max_age: 86400
+
+      - name: rate-limiting
+        config:
+          minute: 60
+          hour: 1000
+          policy: local
+          fault_tolerant: true
+          hide_client_headers: false
+
+      - name: request-id
+        config:
+          generator: uuid#counter
+          header_name: X-Request-ID
+          echo_downstream: true
+
+  # ── Vault Sanctum ────────────────────────────────────────────────────────────
+  - name: vault-service
+    url: http://vault-service:8082
+    connect_timeout: 10000
+    read_timeout: 60000    # Higher timeout for payment operations
+    write_timeout: 60000
+    routes:
+      # Xendit webhook — no auth, IP whitelist via Xendit
+      - name: vault-webhook
+        paths:
+          - /api/v1/vault/webhook
+        strip_path: false
+        methods: [POST, OPTIONS]
+        regex_priority: 10
+
+      # Treasury & payment routes
+      - name: vault-protected
+        paths:
+          - /api/v1/vault
+        strip_path: false
+        methods: [GET, POST, PUT, DELETE, OPTIONS]
+        regex_priority: 0
+
+    plugins:
+      - name: cors
+        config:
+          origins:
+            - "http://localhost:3000"
+            - "http://localhost:5173"
+          methods: [GET, POST, PUT, DELETE, PATCH, OPTIONS]
+          headers:
+            - Authorization
+            - Content-Type
+            - Covenant-Key
+            - X-Request-ID
+          credentials: true
+          max_age: 86400
+
+      - name: rate-limiting
+        config:
+          minute: 30     # Stricter for financial endpoints
+          hour: 500
+          policy: local
+          fault_tolerant: true
+
+      - name: request-id
+        config:
+          generator: uuid#counter
+          header_name: X-Request-ID
+          echo_downstream: true
+
+  # ── Covenant Sanctum ─────────────────────────────────────────────────────────
+  - name: covenant-service
+    url: http://covenant-service:8083
+    connect_timeout: 10000
+    read_timeout: 30000
+    write_timeout: 30000
+    routes:
+      - name: covenant-routes
+        paths:
+          - /api/v1/covenant
+        strip_path: false
+        methods: [GET, POST, PUT, DELETE, PATCH, OPTIONS]
+
+    plugins:
+      - name: cors
+        config:
+          origins:
+            - "http://localhost:3000"
+            - "http://localhost:5173"
+          methods: [GET, POST, PUT, DELETE, PATCH, OPTIONS]
+          headers:
+            - Authorization
+            - Content-Type
+            - Covenant-Key
+            - X-Request-ID
+          credentials: true
+          max_age: 86400
+
+      - name: rate-limiting
+        config:
+          minute: 60
+          policy: local
+          fault_tolerant: true
+
+      - name: request-id
+        config:
+          generator: uuid#counter
+          header_name: X-Request-ID
+          echo_downstream: true
+
+  # ── Communion Sanctum (REST + WebSocket) ─────────────────────────────────────
+  - name: communion-service
+    url: http://communion-service:8084
+    connect_timeout: 10000
+    read_timeout: 86400000   # 24h for WebSocket keep-alive
+    write_timeout: 86400000
+    routes:
+      - name: communion-routes
+        paths:
+          - /api/v1/communion
+        strip_path: false
+        methods: [GET, POST, OPTIONS]
+        protocols: [http, https, ws, wss]   # WebSocket support
+
+    plugins:
+      - name: cors
+        config:
+          origins:
+            - "http://localhost:3000"
+            - "http://localhost:5173"
+          methods: [GET, POST, OPTIONS]
+          headers:
+            - Authorization
+            - Content-Type
+            - Upgrade
+            - Connection
+          credentials: true
+          max_age: 86400
+
+      - name: rate-limiting
+        config:
+          minute: 100
+          policy: local
+          fault_tolerant: true
+
+  # ── Judgment Sanctum ─────────────────────────────────────────────────────────
+  - name: judgment-service
+    url: http://judgment-service:8085
+    connect_timeout: 10000
+    read_timeout: 30000
+    write_timeout: 30000
+    routes:
+      - name: judgment-routes
+        paths:
+          - /api/v1/judgment
+        strip_path: false
+        methods: [GET, POST, PUT, OPTIONS]
+
+    plugins:
+      - name: cors
+        config:
+          origins:
+            - "http://localhost:3000"
+            - "http://localhost:5173"
+          methods: [GET, POST, PUT, OPTIONS]
+          headers:
+            - Authorization
+            - Content-Type
+            - X-Request-ID
+          credentials: true
+          max_age: 86400
+
+      - name: rate-limiting
+        config:
+          minute: 30
+          policy: local
+          fault_tolerant: true
+
+      - name: request-id
+        config:
+          generator: uuid#counter
+          header_name: X-Request-ID
+          echo_downstream: true
+
+# ─── GLOBAL PLUGINS ───────────────────────────────────────────────────────────
+plugins:
+  - name: correlation-id
+    config:
+      header_name: X-Correlation-ID
+      generator: uuid
+      echo_downstream: true

@@ -69,13 +69,16 @@
 
 ---
 
-### 🚩 Milestone 3: Vault Sanctum (Treasury Core)
-- [ ] Implement Treasury balance inquiry (`GET /vault/treasury`)
-- [ ] Implement Offerings top-up flow (`POST /vault/offering` + Midtrans/Xendit Sandbox webhook handling)
-- [ ] Implement Withdrawal Ritual (`POST /vault/withdrawal`)
-- [ ] Implement P2P Tithing direct transfer (`POST /vault/tithing`)
-- [ ] Implement Chronicles transaction history (`GET /vault/chronicles`)
-- [ ] **Git Commit & Push to GitHub**
+### 🚩 Milestone 3: Vault Sanctum (Treasury & Payments) ✅
+- [x] Entity layer: `Treasury.java` (@Version optimistic locking), `Offering.java`, `Withdrawal.java`, `Chronicle.java` (immutable audit log)
+- [x] Repository layer: `TreasuryRepository.java`, `OfferingRepository.java`, `WithdrawalRepository.java`, `ChronicleRepository.java`
+- [x] Payment Gateway: Xendit integration (`XenditService.java` for Invoices & Disbursements APIs)
+- [x] API Gateway Migration: Replaced custom gateway with **Kong 3.6 API Gateway** (DB-less declarative config `kong/kong.yaml` with CORS, rate-limiting, request-id, WebSocket)
+- [x] DTO layer: Request & Response DTOs (`MakeOfferingRequest`, `WithdrawalRequest`, `TitheTransferRequest`, `XenditWebhookPayload`, `TreasuryResponse`, `OfferingResponse`, `WithdrawalResponse`, `ChronicleResponse`)
+- [x] Service layer: `VaultService.java` (Treasury auto-creation, Xendit top-up, Xendit bank withdrawal, P2P tithing, Escrow hold/release/refund)
+- [x] Event Messaging: `VaultEventConsumer.java` listening on RabbitMQ for `covenant-fulfilled` and `judgment-resolved` events
+- [x] REST Resource: `VaultResource.java` with complete API routes, Xendit callback receiver, and internal Escrow endpoints
+- [x] **Git Commit & Push to GitHub**
 
 ---
 

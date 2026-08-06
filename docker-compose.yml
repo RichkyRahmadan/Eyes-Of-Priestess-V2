@@ -3,6 +3,8 @@ version: '3.8'
 # ═══════════════════════════════════════════════════════════════════════════════
 # EyesOfPriestess — The Covenant Protocol
 # Docker Compose: Full Sanctum Network Orchestration
+# API Gateway: Kong (DB-less, declarative)
+# Payment Gateway: Xendit
 # ═══════════════════════════════════════════════════════════════════════════════
 
 services:
@@ -88,9 +90,9 @@ services:
       RABBITMQ_PORT: 5672
       RABBITMQ_USERNAME: priestess
       RABBITMQ_PASSWORD: originium_seal
-      JWT_SECRET: ${JWT_SECRET:-originium-256-bit-secret-key-change-in-production}
-      JWT_ACCESS_EXPIRY: 900       # 15 minutes
-      JWT_REFRESH_EXPIRY: 604800   # 7 days
+      JWT_ISSUER: eyesofpriestess
+      JWT_ACCESS_EXPIRY: 900
+      JWT_REFRESH_EXPIRY: 604800
       QUARKUS_HTTP_PORT: 8081
     ports:
       - "8081:8081"
@@ -104,7 +106,7 @@ services:
     networks:
       - sanctum-network
 
-  # Vault Sanctum — Treasury & Payments (port 8082)
+  # Vault Sanctum — Treasury & Payments / Xendit (port 8082)
   vault-service:
     build:
       context: ./backend/vault-service
@@ -121,9 +123,10 @@ services:
       RABBITMQ_USERNAME: priestess
       RABBITMQ_PASSWORD: originium_seal
       SEAL_SERVICE_URL: http://seal-service:8081
-      MIDTRANS_SERVER_KEY: ${MIDTRANS_SERVER_KEY:-}
-      MIDTRANS_CLIENT_KEY: ${MIDTRANS_CLIENT_KEY:-}
-      XENDIT_API_KEY: ${XENDIT_API_KEY:-}
+      XENDIT_API_KEY: ${XENDIT_API_KEY:-xnd_development_REPLACE_ME}
+      XENDIT_WEBHOOK_TOKEN: ${XENDIT_WEBHOOK_TOKEN:-xnd_webhook_REPLACE_ME}
+      XENDIT_CALLBACK_URL: ${XENDIT_CALLBACK_URL:-https://your-ngrok.ngrok.io}
+      TITHE_PERCENTAGE: 1.0
       QUARKUS_HTTP_PORT: 8082
     ports:
       - "8082:8082"
@@ -217,27 +220,35 @@ services:
     networks:
       - sanctum-network
 
-  # ─── THE VEIL (API GATEWAY) ─────────────────────────────────────────────────
+  # ─── THE KONG GATEWAY ───────────────────────────────────────────────────────
 
-  the-veil:
-    build:
-      context: ./backend/the-veil
-      dockerfile: src/main/docker/Dockerfile.jvm
-    container_name: eop-veil
+  # Kong API Gateway — DB-less declarative mode (port 8080 proxy, 8001 admin)
+  kong:
+    image: kong:3.6-ubuntu
+    container_name: eop-kong
     restart: unless-stopped
     environment:
-      SEAL_SERVICE_URL: http://seal-service:8081
-      VAULT_SERVICE_URL: http://vault-service:8082
-      COVENANT_SERVICE_URL: http://covenant-service:8083
-      COMMUNION_SERVICE_URL: http://communion-service:8084
-      JUDGMENT_SERVICE_URL: http://judgment-service:8085
-      QUARKUS_REDIS_HOSTS: redis://redis:6379
-      JWT_SECRET: ${JWT_SECRET:-originium-256-bit-secret-key-change-in-production}
-      QUARKUS_HTTP_PORT: 8080
-      QUARKUS_HTTP_CORS: true
-      QUARKUS_HTTP_CORS_ORIGINS: http://localhost:3000,http://localhost:5173
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /opt/kong/kong.yaml
+      KONG_PROXY_LISTEN: "0.0.0.0:8000"
+      KONG_ADMIN_LISTEN: "0.0.0.0:8001"
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+      KONG_LOG_LEVEL: info
+      KONG_PLUGINS: bundled
+    volumes:
+      - ./kong/kong.yaml:/opt/kong/kong.yaml:ro
     ports:
-      - "8080:8080"
+      - "8080:8000"    # Public Proxy — all client traffic goes here
+      - "8443:8443"    # HTTPS Proxy (future TLS termination)
+      - "8001:8001"    # Admin API (localhost only in production!)
+    healthcheck:
+      test: ["CMD", "kong", "health"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
     depends_on:
       - seal-service
       - vault-service
@@ -261,7 +272,7 @@ services:
     ports:
       - "3000:3000"
     depends_on:
-      - the-veil
+      - kong
     networks:
       - sanctum-network
 
