@@ -26,3 +26,7 @@ Thumbs.db
 # Logs & Docker volumes
 *.log
 docker_data/
+
+# JWT Keys — NEVER commit private keys!
+backend/jwt-keys/
+**/privateKey.pem

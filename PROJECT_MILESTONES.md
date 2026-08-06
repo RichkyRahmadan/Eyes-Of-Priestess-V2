@@ -56,12 +56,16 @@
 
 ---
 
-### 🚩 Milestone 2: Seal Sanctum (Authentication & Identity)
-- [ ] Implement Pilgrim registration (`POST /seal/forge`) & Omen OTP simulation (`/seal/omen/*`)
-- [ ] Implement Rite of Return login (`POST /seal/rite`), Sacred Seal (JWT) issuing & renewing
-- [ ] Implement PIN sanctification & bcrypt hashing
-- [ ] Implement Sanction Seal (Insta-Ban token revocation with Redis Crystal blacklist)
-- [ ] **Git Commit & Push to GitHub**
+### 🚩 Milestone 2: Seal Sanctum (Authentication & Identity) ✅
+- [x] Entity layer: `Pilgrim.java`, `Session.java`, `SanctionRecord.java`
+- [x] Repository layer: `PilgrimRepository.java`, `SessionRepository.java` (reactive Panache)
+- [x] DTO layer: 8 request DTOs (Bean Validation), 3 response DTOs (ApiResponse wrapper, PilgrimResponse, SealResponse)
+- [x] Service layer: `JwtService` (SmallRye JWT Build), `CrystalService` (Redis — sanction blacklist, OTP, rate limit), `OmenService` (OTP simulation), `SealService` (full business logic)
+- [x] Resource layer: `SealResource` with all 10 documented REST endpoints
+- [x] Exception handling: `SealException` (factory methods) + `SealExceptionMapper` (global JAX-RS handler)
+- [x] Event: `PilgrimSanctionedEvent` for RabbitMQ Aether
+- [x] Infrastructure: `Dockerfile.jvm`, `scripts/generate-jwt-keys.sh`
+- [x] **Git Commit & Push to GitHub**
 
 ---
 
