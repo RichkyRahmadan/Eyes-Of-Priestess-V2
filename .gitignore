@@ -1,0 +1,28 @@
+# IDE & Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Maven & Build
+target/
+*.class
+*.jar
+*.war
+.mvn/
+
+# Node & Frontend
+node_modules/
+.svelte-kit/
+build/
+dist/
+.env
+.env.local
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Logs & Docker volumes
+*.log
+docker_data/
