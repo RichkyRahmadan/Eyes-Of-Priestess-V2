@@ -3,7 +3,6 @@ package com.eyesofpriestess.vault.service;
 import io.smallrye.mutiny.Uni;
 import io.vertx.core.json.JsonObject;
 import io.vertx.mutiny.core.Vertx;
-import io.vertx.mutiny.ext.web.client.HttpResponse;
 import io.vertx.mutiny.ext.web.client.WebClient;
 import io.vertx.ext.web.client.WebClientOptions;
 import jakarta.annotation.PostConstruct;
@@ -14,7 +13,6 @@ import org.jboss.logging.Logger;
 
 import java.math.BigDecimal;
 import java.util.Base64;
-import java.util.Map;
 import java.util.UUID;
 
 /**

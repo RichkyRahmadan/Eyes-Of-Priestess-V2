@@ -3,14 +3,9 @@ package com.eyesofpriestess.seal.service;
 import io.smallrye.jwt.build.Jwt;
 import jakarta.enterprise.context.ApplicationScoped;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
-import org.jose4j.jwt.consumer.InvalidJwtException;
-import org.jose4j.jwt.consumer.JwtConsumer;
-import org.jose4j.jwt.consumer.JwtConsumerBuilder;
-import org.jose4j.keys.HmacKey;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
-import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
