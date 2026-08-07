@@ -44,7 +44,7 @@ public class AutoReleaseScheduler {
                                         return covenantService.fulfillCovenant(null, cov.id);
                                     })
                                     .toList()
-                    ).replaceWithVoid();
+                    ).andCollectFailures().replaceWithVoid();
                 })
                 .onFailure().invoke(err -> LOG.errorf(err, "[AUTO-RELEASE JOB] Auto-release job encountered an error"));
     }

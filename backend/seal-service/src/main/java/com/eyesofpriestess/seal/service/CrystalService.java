@@ -111,8 +111,8 @@ public class CrystalService {
         String key = LOGIN_FAIL_PREFIX + phone;
         return values().incr(key)
                 .call(count -> {
-                    // Extend TTL on each failure (30 min window)
-                    return values().expire(key, Duration.ofMinutes(30));
+                    // Extend TTL on each failure (30 min window = 1800 seconds)
+                    return redisDs.key(String.class).expire(key, 1800L);
                 });
     }
 
@@ -132,7 +132,7 @@ public class CrystalService {
     public Uni<Long> incrementPinFail(String pilgrimId) {
         String key = PIN_FAIL_PREFIX + pilgrimId;
         return values().incr(key)
-                .call(count -> values().expire(key, Duration.ofMinutes(30)));
+                .call(count -> redisDs.key(String.class).expire(key, 1800L));
     }
 
     public Uni<Void> clearPinFail(String pilgrimId) {

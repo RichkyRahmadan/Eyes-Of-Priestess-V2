@@ -37,6 +37,6 @@ public class SessionRepository implements PanacheRepositoryBase<Session, UUID> {
         return update(
             "severedAt = NOW(), severedReason = ?1 WHERE pilgrimId = ?2 AND severedAt IS NULL",
             reason, pilgrimId
-        );
+        ).map(Integer::longValue);
     }
 }

@@ -12,10 +12,10 @@ import java.util.UUID;
 public class InvitationRepository implements PanacheRepositoryBase<CovenantInvitation, UUID> {
 
     public Uni<Optional<CovenantInvitation>> findByCode(String code) {
-        return find("invitationCode", code).firstResultOptional();
+        return find("invitationCode", code).firstResult().map(Optional::ofNullable);
     }
 
     public Uni<Optional<CovenantInvitation>> findByCovenantId(UUID covenantId) {
-        return find("covenantId", covenantId).firstResultOptional();
+        return find("covenantId", covenantId).firstResult().map(Optional::ofNullable);
     }
 }

@@ -134,7 +134,7 @@ public class CovenantService {
                                 inv.claimedBy = counterpartyId;
 
                                 return covenantRepo.persist(cov)
-                                        .flatMap(c -> invitationRepo.persist(inv))
+                                        .flatMap(c -> invitationRepo.persist(inv).replaceWith(c))
                                         .map(CovenantResponse::from);
                             });
                 });

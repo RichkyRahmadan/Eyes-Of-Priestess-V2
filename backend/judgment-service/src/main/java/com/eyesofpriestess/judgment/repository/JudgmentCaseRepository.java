@@ -13,7 +13,7 @@ import java.util.UUID;
 public class JudgmentCaseRepository implements PanacheRepositoryBase<JudgmentCase, UUID> {
 
     public Uni<Optional<JudgmentCase>> findByCovenantId(UUID covenantId) {
-        return find("covenantId", covenantId).firstResultOptional();
+        return find("covenantId", covenantId).firstResult().map(Optional::ofNullable);
     }
 
     public Uni<Optional<JudgmentCase>> findByIdSafe(UUID id) {

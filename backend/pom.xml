@@ -50,7 +50,7 @@
         <pluginManagement>
             <plugins>
                 <plugin>
-                    <groupId>${quarkus.platform.group-id}</groupId>
+                    <groupId>io.quarkus.platform</groupId>
                     <artifactId>quarkus-maven-plugin</artifactId>
                     <version>${quarkus.platform.version}</version>
                 </plugin>

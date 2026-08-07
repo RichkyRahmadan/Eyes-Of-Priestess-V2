@@ -105,10 +105,10 @@ public class CommunionSocket {
         }
 
         // Persist + broadcast asynchronously on Vert.x event loop
-        VertxContextSupport.subscribeWith(
-                communionService.persistMessage(UUID.fromString(covenantId), pilgrimId, display, content),
-                persisted -> registry.broadcast(covenantId, persisted),
-                err -> LOG.errorf(err, "[COMMUNION] Failed to persist message in room=%s", covenantId)
-        );
+        communionService.persistMessage(UUID.fromString(covenantId), pilgrimId, display, content)
+                .subscribe().with(
+                        persisted -> registry.broadcast(covenantId, persisted),
+                        err -> LOG.errorf(err, "[COMMUNION] Failed to persist message in room=%s", covenantId)
+                );
     }
 }

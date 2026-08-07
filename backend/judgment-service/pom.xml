@@ -36,6 +36,10 @@
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-resteasy-reactive-jackson</artifactId>
         </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-smallrye-openapi</artifactId>
+        </dependency>
 
         <!-- Database -->
         <dependency>
@@ -56,7 +60,7 @@
         <!-- Messaging (RabbitMQ — covenant.broken incoming, resolution outgoing) -->
         <dependency>
             <groupId>io.quarkus</groupId>
-            <artifactId>quarkus-messaging-rabbitmq</artifactId>
+            <artifactId>quarkus-smallrye-reactive-messaging-rabbitmq</artifactId>
         </dependency>
 
         <!-- REST Client (for calling Vault Sanctum on resolution) -->
