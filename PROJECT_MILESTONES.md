@@ -95,12 +95,26 @@
 
 ---
 
-### 🚩 Milestone 5: Communion & Judgment Sanctums (Real-Time Chat & Disputes)
-- [ ] Implement WebSocket Communion endpoint (`ws://localhost:8080/ws/communion/{covenantId}`)
-- [ ] Implement message persistence & history
-- [ ] Implement Dispute/Judgment invocation (`POST /covenant/:id/judgment`), freezing escrow
-- [ ] Implement Oracle resolution panel (`POST /judgment/:id/render` for release/refund/split)
-- [ ] **Git Commit & Push to GitHub**
+### 🚩 Milestone 5: Communion & Judgment Sanctums ✅
+**Communion Sanctum (Real-time WebSocket Chat):**
+- [x] Entity: `Message.java` (USER | SYSTEM message types, per covenant room)
+- [x] Repository: `MessageRepository.java` (paginated history, count queries)
+- [x] DTO: `CommunionMessage.java` (WebSocket wire format — send & receive)
+- [x] Service: `CommunionService.java` (persist user & system messages), `RoomRegistry.java` (in-memory session registry), `JwtValidator.java` (WebSocket JWT handshake)
+- [x] WebSocket: `CommunionSocket.java` (`/ws/communion/{covenantId}?token=JWT`) — auth on connect, broadcast to room, persist on send
+- [x] REST: `CommunionResource.java` (`GET /messages` history, `GET /status` active sessions)
+
+**Judgment Sanctum (Dispute Resolution Engine):**
+- [x] Entity: `JudgmentCase.java` (State machine: OPEN → DELIBERATING → RENDERED, resolution types: RELEASE | REFUND | SPLIT)
+- [x] Repository: `JudgmentCaseRepository.java` (by covenant, by status, by pilgrim)
+- [x] DTO: `SubmitEvidenceRequest`, `RenderJudgmentRequest`, `JudgmentCaseResponse`, `ApiResponse`
+- [x] Events: `CovenantBrokenEvent` (consumed), `JudgmentResolvedEvent` (published)
+- [x] Client: `VaultClient.java` (release, refund, split escrow settlement calls)
+- [x] Consumer: `JudgmentEventConsumer.java` (auto-opens case on `covenant-broken` RabbitMQ event)
+- [x] Service: `JudgmentService.java` (case lifecycle, evidence, Oracle assignment, verdict rendering & financial settlement trigger)
+- [x] REST: `JudgmentResource.java` (7 endpoints: party & Oracle-only `@RolesAllowed("oracle")` panel)
+- [x] Exception handling: `JudgmentException` + `JudgmentExceptionMapper`
+- [x] **Git Commit & Push to GitHub**
 
 ---
 
