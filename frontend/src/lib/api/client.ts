@@ -1,29 +1,41 @@
 import { ApiException } from '$lib/types/api';
-import type { ApiResponse } from '$lib/types/api';
+import type { ApiResponse, ApiError } from '$lib/types/api';
 import { sealStore } from '$lib/stores/seal';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8080/api/v1';
 
-class SealBearer {
-  private async invoke<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+interface RequestOptions extends RequestInit {
+  skipAuth?: boolean;
+  skipRetry?: boolean;
+}
+
+class ApiClient {
+  private async invoke<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
+    const { skipAuth = false, skipRetry = false, ...fetchOptions } = options;
+    
     let accessSeal: string | null = null;
-    if (typeof localStorage !== 'undefined') {
+    if (!skipAuth && typeof localStorage !== 'undefined') {
       accessSeal = localStorage.getItem('accessSeal');
     }
 
-    const isFormData = options.body instanceof FormData;
+    const isFormData = fetchOptions.body instanceof FormData;
     const headers: Record<string, string> = {
       ...(accessSeal ? { Authorization: `Bearer ${accessSeal}` } : {}),
-      ...(!isFormData ? { 'Content-Type': 'application/json' } : {}),
-      ...(options.headers as Record<string, string>)
+      ...(!isFormData && !fetchOptions.headers?.['Content-Type'] 
+        ? { 'Content-Type': 'application/json' } 
+        : {}),
+      ...(fetchOptions.headers as Record<string, string> ?? {})
     };
 
-    const res = await fetch(`${API_BASE}${endpoint}`, { ...options, headers });
+    const res = await fetch(`${API_BASE}${endpoint}`, { 
+      ...fetchOptions, 
+      headers 
+    });
 
-    // Token expired — attempt refresh
-    if (res.status === 401) {
-      const renewed = await this.renewSeal();
-      if (renewed) return this.invoke<T>(endpoint, options);
+    if (res.status === 401 && !skipRetry && accessSeal) {
+      const renewed = await this.refreshToken();
+      if (renewed) return this.invoke<T>(endpoint, { ...options, skipRetry: true });
+      
       sealStore.sever();
       throw new ApiException({
         code: 'SESSION_EXPIRED',
@@ -35,65 +47,93 @@ class SealBearer {
     }
 
     const body: ApiResponse<T> = await res.json();
-    if (!body.success || !res.ok) {
-      throw new ApiException(body.error ?? {
-        code: 'UNKNOWN_ERROR',
-        message: `HTTP ${res.status}`,
-        timestamp: new Date().toISOString(),
-        path: endpoint,
-        requestId: ''
-      });
+    
+    if (!res.ok || !body.success) {
+      throw new ApiException(body.error ?? this.createError(res, endpoint));
     }
-    return body.data as T;
+    
+    if (body.data === undefined) {
+      throw new ApiException(this.createError(res, endpoint, 'No data returned'));
+    }
+    
+    return body.data;
   }
 
-  private async renewSeal(): Promise<boolean> {
-    const refreshSeal = typeof localStorage !== 'undefined'
-      ? localStorage.getItem('refreshSeal') : null;
+  private createError(res: Response, endpoint: string, message?: string): ApiError {
+    return {
+      code: 'HTTP_ERROR',
+      message: message ?? `HTTP ${res.status}: ${res.statusText}`,
+      timestamp: new Date().toISOString(),
+      path: endpoint,
+      requestId: ''
+    };
+  }
+
+  private async refreshToken(): Promise<boolean> {
+    if (typeof localStorage === 'undefined') return false;
+    
+    const refreshSeal = localStorage.getItem('refreshSeal');
     if (!refreshSeal) return false;
+    
     try {
       const res = await fetch(`${API_BASE}/seal/renew`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ refreshSeal })
       });
+      
+      if (!res.ok) return false;
+      
       const data: ApiResponse<{ accessSeal: string }> = await res.json();
-      if (data.success && data.data) {
+      if (data.success && data.data?.accessSeal) {
         sealStore.updateSeal(data.data.accessSeal);
         return true;
       }
-    } catch { /* fall through */ }
+    } catch {
+      // Silent fail - will trigger logout
+    }
     return false;
   }
 
-  get<T>(endpoint: string) {
-    return this.invoke<T>(endpoint, { method: 'GET' });
+  get<T>(endpoint: string, options?: Omit<RequestOptions, 'method' | 'body'>) {
+    return this.invoke<T>(endpoint, { ...options, method: 'GET' });
   }
 
-  post<T>(endpoint: string, body?: unknown) {
+  post<T>(endpoint: string, body?: unknown, options?: Omit<RequestOptions, 'method' | 'body'>) {
     return this.invoke<T>(endpoint, {
+      ...options,
       method: 'POST',
-      ...(body !== undefined ? { body: JSON.stringify(body) } : {})
+      body: body !== undefined ? JSON.stringify(body) : undefined
     });
   }
 
-  put<T>(endpoint: string, body?: unknown) {
+  put<T>(endpoint: string, body?: unknown, options?: Omit<RequestOptions, 'method' | 'body'>) {
     return this.invoke<T>(endpoint, {
+      ...options,
       method: 'PUT',
-      ...(body !== undefined ? { body: JSON.stringify(body) } : {})
+      body: body !== undefined ? JSON.stringify(body) : undefined
     });
   }
 
-  patch<T>(endpoint: string, body?: unknown) {
+  patch<T>(endpoint: string, body?: unknown, options?: Omit<RequestOptions, 'method' | 'body'>) {
     return this.invoke<T>(endpoint, {
+      ...options,
       method: 'PATCH',
-      ...(body !== undefined ? { body: JSON.stringify(body) } : {})
+      body: body !== undefined ? JSON.stringify(body) : undefined
     });
   }
 
-  delete<T>(endpoint: string) {
-    return this.invoke<T>(endpoint, { method: 'DELETE' });
+  delete<T>(endpoint: string, options?: Omit<RequestOptions, 'method'>) {
+    return this.invoke<T>(endpoint, { ...options, method: 'DELETE' });
+  }
+
+  upload<T>(endpoint: string, formData: FormData, options?: Omit<RequestOptions, 'method' | 'body'>) {
+    return this.invoke<T>(endpoint, {
+      ...options,
+      method: 'POST',
+      body: formData
+    });
   }
 }
 
-export const api = new SealBearer();
+export const api = new ApiClient();
