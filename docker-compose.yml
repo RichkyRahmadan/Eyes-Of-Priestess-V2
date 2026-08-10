@@ -1,5 +1,3 @@
-version: '3.8'
-
 # ═══════════════════════════════════════════════════════════════════════════════
 # EyesOfPriestess — The Covenant Protocol
 # Docker Compose: Full Sanctum Network Orchestration
@@ -77,8 +75,8 @@ services:
   # Seal Sanctum — Authentication & Identity (port 8081)
   seal-service:
     build:
-      context: ./backend/seal-service
-      dockerfile: src/main/docker/Dockerfile.jvm
+      context: ./backend
+      dockerfile: seal-service/Dockerfile
     container_name: eop-seal
     restart: unless-stopped
     environment:
@@ -109,8 +107,8 @@ services:
   # Vault Sanctum — Treasury & Payments / Xendit (port 8082)
   vault-service:
     build:
-      context: ./backend/vault-service
-      dockerfile: src/main/docker/Dockerfile.jvm
+      context: ./backend
+      dockerfile: vault-service/Dockerfile
     container_name: eop-vault
     restart: unless-stopped
     environment:
@@ -143,8 +141,8 @@ services:
   # Covenant Sanctum — Escrow Room Engine (port 8083)
   covenant-service:
     build:
-      context: ./backend/covenant-service
-      dockerfile: src/main/docker/Dockerfile.jvm
+      context: ./backend
+      dockerfile: covenant-service/Dockerfile
     container_name: eop-covenant
     restart: unless-stopped
     environment:
@@ -174,8 +172,8 @@ services:
   # Communion Sanctum — Real-time Chat via WebSocket (port 8084)
   communion-service:
     build:
-      context: ./backend/communion-service
-      dockerfile: src/main/docker/Dockerfile.jvm
+      context: ./backend
+      dockerfile: communion-service/Dockerfile
     container_name: eop-communion
     restart: unless-stopped
     environment:
@@ -195,8 +193,8 @@ services:
   # Judgment Sanctum — Dispute Resolution (port 8085)
   judgment-service:
     build:
-      context: ./backend/judgment-service
-      dockerfile: src/main/docker/Dockerfile.jvm
+      context: ./backend
+      dockerfile: judgment-service/Dockerfile
     container_name: eop-judgment
     restart: unless-stopped
     environment:

@@ -118,14 +118,15 @@
 
 ---
 
-### 6️⃣ Milestone 6: The Sanctum Frontend (SvelteKit Web Application)
-- [ ] Design System implementation: Void Purple (`#0b0914`), Ancient Gold (`#d4af37`), Crystalline Glassmorphism
-- [ ] Build Rite forms (Login, Register, PIN modal)
-- [ ] Build Observatory Dashboard (Treasury summary, active covenants, stats, charts)
-- [ ] Build Vault UI (Offering, Withdrawal, Tithing, Chronicles list)
-- [ ] Build Covenant Chamber UI (Timeline, delivery proof, confirm release, real-time Communion chat)
-- [ ] Build Oracle Admin Panel (`/oracle`)
-- [ ] **Git Commit & Push to GitHub**
+### 🚩 Milestone 6: The Sanctum Frontend (SvelteKit Web Application) ✅
+- [x] Design System implementation: Void Purple (`#0b0914`), Ancient Gold (`#d4af37`), Crystalline Glassmorphism
+- [x] Build Rite forms (Login, Register, PIN modal)
+- [x] Build Observatory Dashboard (Treasury summary, active covenants, stats, charts)
+- [x] Build Vault UI (Offering, Withdrawal, Tithing, Chronicles list)
+- [x] Build Covenant Chamber UI (Timeline, delivery proof, confirm release, real-time Communion chat)
+- [x] Build Oracle Admin Panel & Judgment Sanctum (`/sanctum/judgment`)
+- [x] Migrated to Svelte 5 Runes & configured Docker deployment with `@sveltejs/adapter-node`
+- [x] **Git Commit & Push to GitHub**
 
 ---
 
