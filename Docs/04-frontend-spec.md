@@ -1,639 +1,1055 @@
 # EyesOfPriestess — Frontend Specification
-## The Sanctum Interface: SvelteKit Website
 
-**Version:** 1.0  
-**Framework:** SvelteKit  
-**Language:** TypeScript  
-**Styling:** TailwindCSS + shadcn-svelte  
-**State:** Svelte Stores  
-**Icons:** Lucide Svelte  
-**HTTP:** Native Fetch with custom interceptors  
+> **Version:** 1.0  
+> **Framework:** SvelteKit 2.x + TypeScript  
+> **Styling:** TailwindCSS 3.x  
+> **UI Library:** shadcn-svelte (adapted)  
+> **Design System:** Warm Editorial (Cream Canvas + Coral Accent + Slab-Serif)
 
 ---
 
 ## 1. Tech Stack Detail
 
 | Layer | Technology | Purpose |
-|-------|------------|---------|
-| Framework | SvelteKit | SSR + SPA, file-based routing |
-| Language | TypeScript 5.x | Type safety |
-| Styling | TailwindCSS 3.x | Utility-first CSS |
-| Components | shadcn-svelte | Accessible, customizable UI primitives |
-| Forms | Formsnap + Zod | Form handling + validation schema |
-| Toast | svelte-sonner | Notifications (omens) |
-| Charts | Chart.js + svelte-chartjs | Observatory analytics |
-| Date | date-fns | Date formatting & manipulation |
-| Currency | Intl.NumberFormat | IDR formatting |
+|---|---|---|
+| **Framework** | SvelteKit 2.x | SSR/SPA hybrid, file-based routing, API routes |
+| **Language** | TypeScript 5.x | Type safety, interfaces, enums |
+| **Styling** | TailwindCSS 3.x | Utility-first CSS dengan custom design tokens |
+| **Components** | shadcn-svelte | Base components (Button, Card, Input, Dialog, etc.) |
+| **Icons** | Lucide Svelte | Consistent iconography |
+| **Fonts** | Cormorant Garamond (display), Inter (body), JetBrains Mono (code) |
+| **State** | Svelte Stores (writable, derived) + Context API |
+| **HTTP Client** | Native fetch + custom wrapper |
+| **WebSocket** | Native WebSocket API + custom manager |
+| **Validation** | Zod | Runtime schema validation |
+| **Date** | date-fns | Date formatting & manipulation |
+| **Currency** | Intl.NumberFormat | IDR formatting |
 
 ---
 
-## 2. Project Structure — The Sanctum
+## 2. Tailwind Configuration
 
-```
-frontend/
-├── src/
-│   ├── app.html
-│   ├── app.d.ts
-│   ├── hooks.server.ts
-│   ├── hooks.client.ts
-│   │
-│   ├── lib/
-│   │   ├── components/
-│   │   │   ├── ui/
-│   │   │   ├── sanctum/
-│   │   │   │   ├── Veil.svelte
-│   │   │   │   ├── Sidebar.svelte
-│   │   │   │   ├── SanctumFloor.svelte
-│   │   │   │   ├── MobileNav.svelte
-│   │   │   │   └── SealGuard.svelte
-│   │   │   ├── vault/
-│   │   │   │   ├── TreasuryCard.svelte
-│   │   │   │   ├── ChronicleList.svelte
-│   │   │   │   ├── ChronicleItem.svelte
-│   │   │   │   ├── OfferingForm.svelte
-│   │   │   │   ├── WithdrawalForm.svelte
-│   │   │   │   ├── TithingForm.svelte
-│   │   │   │   ├── BankSelector.svelte
-│   │   │   │   └── VADisplay.svelte
-│   │   │   ├── covenant/
-│   │   │   │   ├── CovenantCard.svelte
-│   │   │   │   ├── CovenantList.svelte
-│   │   │   │   ├── CovenantTimeline.svelte
-│   │   │   │   ├── CovenantStatusBadge.svelte
-│   │   │   │   ├── ForgeCovenantForm.svelte
-│   │   │   │   ├── CovenantActions.svelte
-│   │   │   │   ├── OathProof.svelte
-│   │   │   │   ├── JudgmentForm.svelte
-│   │   │   │   └── CountdownTimer.svelte
-│   │   │   ├── communion/
-│   │   │   │   ├── CommunionBox.svelte
-│   │   │   │   ├── CommunionMessage.svelte
-│   │   │   │   ├── CommunionInput.svelte
-│   │   │   │   ├── CommunionHeader.svelte
-│   │   │   │   └── TypingIndicator.svelte
-│   │   │   ├── seal/
-│   │   │   │   ├── RiteForm.svelte
-│   │   │   │   ├── ForgeIdentityForm.svelte
-│   │   │   │   ├── OmenInput.svelte
-│   │   │   │   ├── PinInput.svelte
-│   │   │   │   ├── PinPad.svelte
-│   │   │   │   └── PasswordInput.svelte
-│   │   │   └── shared/
-│   │   │       ├── LoadingCrystal.svelte
-│   │   │       ├── EmptyVoid.svelte
-│   │   │       ├── ErrorBoundary.svelte
-│   │   │       ├── CurrencyDisplay.svelte
-│   │   │       ├── CovenantScore.svelte
-│   │   │       └── PriestessSeal.svelte
-│   │   ├── stores/
-│   │   │   ├── seal.ts
-│   │   │   ├── vault.ts
-│   │   │   ├── covenant.ts
-│   │   │   ├── communion.ts
-│   │   │   ├── ui.ts
-│   │   │   └── omen.ts
-│   │   ├── api/
-│   │   │   ├── client.ts
-│   │   │   ├── seal.ts
-│   │   │   ├── vault.ts
-│   │   │   ├── covenant.ts
-│   │   │   ├── communion.ts
-│   │   │   └── judgment.ts
-│   │   ├── types/
-│   │   │   ├── pilgrim.ts
-│   │   │   ├── vault.ts
-│   │   │   ├── covenant.ts
-│   │   │   ├── communion.ts
-│   │   │   ├── judgment.ts
-│   │   │   └── api.ts
-│   │   └── utils/
-│   │       ├── formatters.ts
-│   │       ├── validators.ts
-│   │       ├── constants.ts
-│   │       └── helpers.ts
-│   ├── routes/
-│   │   ├── +layout.svelte
-│   │   ├── +layout.ts
-│   │   ├── +page.svelte
-│   │   ├── rite/
-│   │   │   └── +page.svelte
-│   │   ├── rite/forge/
-│   │   │   └── +page.svelte
-│   │   ├── rite/attune/
-│   │   │   └── +page.svelte
-│   │   ├── sanctum/
-│   │   │   ├── +layout.svelte
-│   │   │   ├── +layout.ts
-│   │   │   ├── observatory/
-│   │   │   │   └── +page.svelte
-│   │   │   ├── vault/
-│   │   │   │   ├── +page.svelte
-│   │   │   │   ├── offering/
-│   │   │   │   ├── withdrawal/
-│   │   │   │   └── chronicles/
-│   │   │   ├── tithing/
-│   │   │   │   └── +page.svelte
-│   │   │   ├── covenant/
-│   │   │   │   ├── +page.svelte
-│   │   │   │   ├── forge/
-│   │   │   │   └── [id]/
-│   │   │   ├── judgment/
-│   │   │   │   └── +page.svelte
-│   │   │   └── profile/
-│   │   │       └── +page.svelte
-│   │   └── api/
-│   │       └── proxy/
-│   │           └── [...path]/
-│   │               └── +server.ts
-│   ├── app.postcss
-│   └── service-worker.ts
-├── static/
-│   ├── favicon.png
-│   ├── priestess-seal.svg
-│   ├── manifest.json
-│   └── images/
-├── package.json
-├── svelte.config.js
-├── vite.config.ts
-├── tailwind.config.js
-├── tsconfig.json
-├── postcss.config.js
-└── Dockerfile
+```javascript
+// tailwind.config.js
+import { fontFamily } from "tailwindcss/defaultTheme";
+
+/** @type {import('tailwindcss').Config} */
+export default {
+  darkMode: ["class"],
+  content: ["./src/**/*.{html,js,svelte,ts}"],
+  theme: {
+    extend: {
+      colors: {
+        // Brand & Accent
+        primary: {
+          DEFAULT: "#cc785c",
+          active: "#a9583e",
+          disabled: "#e6dfd8",
+        },
+        // Surfaces
+        canvas: "#faf9f5",
+        "surface-soft": "#f5f0e8",
+        "surface-card": "#efe9de",
+        "surface-cream-strong": "#e8e0d2",
+        "surface-dark": "#181715",
+        "surface-dark-elevated": "#252320",
+        "surface-dark-soft": "#1f1e1b",
+        // Text
+        ink: "#141413",
+        "body-strong": "#252523",
+        body: "#3d3d3a",
+        muted: "#6c6a64",
+        "muted-soft": "#8e8b82",
+        "on-primary": "#ffffff",
+        "on-dark": "#faf9f5",
+        "on-dark-soft": "#a09d96",
+        // Borders
+        hairline: "#e6dfd8",
+        "hairline-soft": "#ebe6df",
+        // Semantic
+        "accent-teal": "#5db8a6",
+        "accent-amber": "#e8a55a",
+        success: "#5db872",
+        warning: "#d4a017",
+        error: "#c64545",
+      },
+      fontFamily: {
+        display: ["Cormorant Garamond", "Tiempos Headline", "Garamond", "serif"],
+        sans: ["Inter", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "sans-serif"],
+        mono: ["JetBrains Mono", "ui-monospace", "monospace"],
+      },
+      fontSize: {
+        "display-xl": ["64px", { lineHeight: "1.05", letterSpacing: "-0.02em" }],
+        "display-lg": ["48px", { lineHeight: "1.1", letterSpacing: "-0.02em" }],
+        "display-md": ["36px", { lineHeight: "1.15", letterSpacing: "-0.015em" }],
+        "display-sm": ["28px", { lineHeight: "1.2", letterSpacing: "-0.01em" }],
+        "title-lg": ["22px", { lineHeight: "1.3" }],
+        "title-md": ["18px", { lineHeight: "1.4" }],
+        "title-sm": ["16px", { lineHeight: "1.4" }],
+        "body-md": ["16px", { lineHeight: "1.55" }],
+        "body-sm": ["14px", { lineHeight: "1.55" }],
+        caption: ["13px", { lineHeight: "1.4" }],
+        "caption-upper": ["12px", { lineHeight: "1.4", letterSpacing: "0.1em" }],
+      },
+      spacing: {
+        section: "96px",
+        xxl: "48px",
+        xl: "32px",
+        lg: "24px",
+        md: "16px",
+        sm: "12px",
+        xs: "8px",
+        xxs: "4px",
+      },
+      borderRadius: {
+        xs: "4px",
+        sm: "6px",
+        md: "8px",
+        lg: "12px",
+        xl: "16px",
+        pill: "9999px",
+        full: "9999px",
+      },
+      boxShadow: {
+        soft: "0 1px 3px rgba(20, 20, 19, 0.08)",
+        card: "0 4px 20px rgba(20, 20, 19, 0.06)",
+        elevated: "0 8px 30px rgba(20, 20, 19, 0.12)",
+      },
+    },
+  },
+  plugins: [require("tailwindcss-animate")],
+};
 ```
 
 ---
 
-## 3. Type Definitions
+## 3. TypeScript Types
 
-### 3.1 Pilgrim Types
 ```typescript
-export interface Pilgrim {
+// src/lib/types/auth.ts
+export interface User {
   id: string;
-  phone: string;
-  email?: string;
+  email: string;
+  username: string;
   fullName: string;
-  profilePhoto?: string;
-  attunementStatus: 'UNATTUNED' | 'PENDING' | 'ATTUNED' | 'REJECTED';
-  covenantScore: number;
-  status: 'ATTUNED' | 'SUSPENDED' | 'SANCTIONED';
-  attunedAt: string;
-}
-
-export interface SealState {
-  pilgrim: Pilgrim | null;
-  accessSeal: string | null;
-  refreshSeal: string | null;
-  isAuthenticated: boolean;
-  isLoading: boolean;
-}
-
-export interface RiteCredentials {
-  phone: string;
-  password: string;
-}
-
-export interface ForgeIdentityData {
-  phone: string;
-  email?: string;
-  fullName: string;
-  password: string;
-  pin: string;
-}
-```
-
-### 3.2 Vault Types
-```typescript
-export interface Treasury {
-  availableTreasury: number;
-  sealedTreasury: number;
-  totalTreasury: number;
-  currency: string;
-}
-
-export interface Chronicle {
-  id: string;
-  type: ChronicleType;
-  amount: number;
-  tithe: number;
-  netAmount: number;
-  status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
-  description: string;
-  referenceId?: string;
-  counterpartyName?: string;
-  treasuryAfter: number;
+  phoneNumber?: string;
+  role: "USER" | "ADMIN" | "MODERATOR";
+  isVerified: boolean;
+  isPinSet: boolean;
+  avatarUrl?: string;
   createdAt: string;
 }
 
-export type ChronicleType = 
-  | 'OFFERING' | 'WITHDRAWAL' | 'TITHING_IN' | 'TITHING_OUT' 
-  | 'SEAL_HOLD' | 'SEAL_RELEASE' | 'SEAL_REFUND' | 'TITHE';
-
-export interface OfferingRequest {
-  amount: number;
-  method: 'VIRTUAL_ACCOUNT' | 'E_WALLET' | 'BANK_TRANSFER';
-  bank?: string;
-  eWalletType?: string;
+export interface AuthTokens {
+  accessToken: string;
+  refreshToken: string;
+  tokenType: string;
+  expiresIn: number;
 }
 
-export interface WithdrawalRequest {
+export interface LoginCredentials {
+  email: string;
+  password: string;
+}
+
+export interface RegisterData {
+  email: string;
+  password: string;
+  fullName: string;
+  phoneNumber: string;
+  username: string;
+}
+
+// src/lib/types/wallet.ts
+export interface Wallet {
+  walletId: string;
+  availableBalance: number;
+  escrowBalance: number;
+  totalBalance: number;
+  currency: string;
+  lastUpdated: string;
+}
+
+export interface Transaction {
+  transactionId: string;
+  type: TransactionType;
+  direction: "IN" | "OUT" | "NEUTRAL";
   amount: number;
-  bankAccount: BankAccount;
-  pin: string;
+  fee: number;
+  status: TransactionStatus;
+  description: string;
+  counterpartyName?: string;
+  counterpartyAvatar?: string;
+  createdAt: string;
+}
+
+export type TransactionType = 
+  | "TOPUP" | "WITHDRAW" | "P2P_TRANSFER" 
+  | "ESCROW_HOLD" | "ESCROW_RELEASE" | "ESCROW_REFUND" | "FEE";
+
+export type TransactionStatus = "PENDING" | "SUCCESS" | "FAILED";
+
+export interface TopUpOrder {
+  orderId: string;
+  amount: number;
+  method: string;
+  bankCode?: string;
+  virtualAccountNumber?: string;
+  status: string;
+  expiryTime: string;
 }
 
 export interface BankAccount {
+  id: string;
   bankCode: string;
   bankName: string;
   accountNumber: string;
-  accountName: string;
+  accountHolderName: string;
+  isPrimary: boolean;
 }
 
-export interface TithingRequest {
-  recipientPhone: string;
-  amount: number;
-  note?: string;
-  pin: string;
+// src/lib/types/room.ts
+export interface Room {
+  roomId: string;
+  roomCode: string;
+  title: string;
+  description: string;
+  itemCategory: ItemCategory;
+  itemPrice: number;
+  fee: number;
+  totalAmount: number;
+  status: RoomStatus;
+  buyer: RoomParticipant;
+  seller: RoomParticipant;
+  autoReleaseAt: string;
+  chatRoomId: string;
+  timeline: RoomTimelineEvent[];
+  createdAt: string;
 }
-```
 
-### 3.3 Covenant Types
-```typescript
-export type CovenantStatus = 
-  | 'FORGED' | 'ACCEPTED' | 'DELIVERED' | 'FULFILLED' 
-  | 'JUDGMENT' | 'BROKEN' | 'EXPIRED';
+export type ItemCategory = 
+  | "GAME_ACCOUNT" | "GAME_ITEM" | "DIGITAL_PRODUCT" 
+  | "PHYSICAL_PRODUCT" | "SERVICE" | "OTHER";
 
-export type CovenantCategory = 'GAME' | 'MARKETPLACE' | 'SERVICE';
+export type RoomStatus = 
+  | "WAITING_PAYMENT" | "FUNDED" | "DELIVERED" 
+  | "COMPLETED" | "DISPUTED" | "CANCELLED" | "REFUNDED";
 
-export interface CovenantParty {
+export interface RoomParticipant {
   id: string;
-  fullName: string;
-  phone: string;
-  covenantScore: number;
-  profilePhoto?: string;
+  name: string;
+  avatar?: string;
 }
 
-export interface CovenantTimelineEvent {
-  status: CovenantStatus;
+export interface RoomTimelineEvent {
+  status: string;
   timestamp: string;
   actor: string;
-  note: string;
-  proofUrl?: string;
 }
 
-export interface Covenant {
-  covenantId: string;
-  covenantCode: string;
-  initiator: CovenantParty;
-  counterpart: CovenantParty;
-  itemName: string;
-  itemDescription?: string;
-  category: CovenantCategory;
-  amount: number;
-  status: CovenantStatus;
-  timeline: CovenantTimelineEvent[];
-  deadlineAt: string;
-  canFulfill: boolean;
-  canBreak: boolean;
-  canSever: boolean;
-  escrow: { sealId: string; amount: number; status: string };
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface CovenantListItem {
-  covenantId: string;
-  covenantCode: string;
-  role: 'INITIATOR' | 'COUNTERPART';
-  itemName: string;
-  amount: number;
-  status: CovenantStatus;
-  otherParty: CovenantParty;
-  deadlineAt: string;
-  updatedAt: string;
-}
-
-export interface ForgeCovenantRequest {
-  counterpartPhone: string;
-  itemName: string;
-  itemDescription?: string;
-  category: CovenantCategory;
-  amount: number;
-  deadlineHours: number;
-  pin: string;
-}
-```
-
-### 3.4 Communion Types
-```typescript
-export interface CommunionMessage {
+export interface DeliveryProof {
   id: string;
+  proofType: "IMAGE" | "VIDEO" | "DOCUMENT" | "LINK";
+  proofUrl: string;
+  thumbnailUrl?: string;
+  description?: string;
+  uploadedAt: string;
+}
+
+// src/lib/types/chat.ts
+export interface ChatRoom {
+  chatRoomId: string;
+  roomName: string;
+  roomCode: string;
+  lastMessage?: string;
+  lastMessageAt?: string;
+  unreadCount: number;
+  participantCount: number;
+  escrowStatus: RoomStatus;
+}
+
+export interface ChatMessage {
+  messageId: string;
+  chatRoomId: string;
   senderId: string;
   senderName: string;
   senderAvatar?: string;
-  message: string;
-  messageType: 'TEXT' | 'IMAGE' | 'FILE' | 'SYSTEM';
+  content: string;
+  messageType: "TEXT" | "IMAGE" | "FILE" | "SYSTEM" | "ESCROW_STATUS";
   fileUrl?: string;
   fileName?: string;
-  createdAt: string;
-  isRead: boolean;
-  isMine: boolean;
+  fileSize?: number;
+  sentAt: string;
+  isEdited: boolean;
 }
 
-export interface WSMessage {
-  type: 'NEW_MESSAGE' | 'SYSTEM_NOTIFICATION' | 'TYPING' | 'READ_RECEIPT';
-  payload: unknown;
-}
-```
-
-### 3.5 Judgment Types
-```typescript
-export type JudgmentReason = 'ITEM_NOT_AS_DESCRIBED' | 'NOT_DELIVERED' | 'OTHER';
-export type JudgmentStatus = 'OPEN' | 'UNDER_REVIEW' | 'RESOLVED' | 'REJECTED';
-export type JudgmentResolution = 'RELEASE_TO_COUNTERPART' | 'REFUND_TO_INITIATOR' | 'SPLIT';
-
-export interface Judgment {
-  judgmentId: string;
-  covenantId: string;
-  covenantCode: string;
-  itemName: string;
-  amount: number;
-  reason: JudgmentReason;
+// src/lib/types/dispute.ts
+export interface Dispute {
+  disputeId: string;
+  roomId: string;
+  roomCode: string;
+  title: string;
   description: string;
-  evidenceUrls: string[];
-  status: JudgmentStatus;
-  raisedByMe: boolean;
-  otherParty: { id: string; fullName: string };
-  resolution?: JudgmentResolution;
-  oracleNotes?: string;
+  status: "OPEN" | "UNDER_REVIEW" | "RESOLVED" | "CLOSED";
+  initiatedBy: string;
+  initiatorRole: "BUYER" | "SELLER";
+  buyer: { id: string; name: string };
+  seller: { id: string; name: string };
+  evidence: DisputeEvidence[];
+  decision?: string;
   createdAt: string;
   updatedAt: string;
 }
-```
 
-### 3.6 API Response Types
-```typescript
-export interface ApiResponse<T> {
-  success: boolean;
-  data?: T;
-  error?: ApiError;
+export interface DisputeEvidence {
+  id: string;
+  type: "IMAGE" | "VIDEO" | "DOCUMENT" | "CHAT_LOG";
+  url: string;
+  description?: string;
+  uploadedBy: string;
+  uploadedAt: string;
 }
 
+// src/lib/types/common.ts
 export interface ApiError {
-  code: string;
-  message: string;
-  details?: Record<string, string>;
   timestamp: string;
+  status: number;
+  error: string;
+  message: string;
   path: string;
-  requestId: string;
+  details?: Array<{ field: string; message: string }>;
+  traceId: string;
+}
+
+export interface PaginatedResponse<T> {
+  content: T[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
 }
 ```
 
 ---
 
-## 4. Store Architecture
+## 4. Svelte Stores
 
-### 4.1 Seal Store
 ```typescript
-import { writable, derived } from 'svelte/store';
-import type { Pilgrim, SealState } from '$lib/types/pilgrim';
+// src/lib/stores/auth.ts
+import { writable, derived } from "svelte/store";
+import type { User, AuthTokens } from "$lib/types";
 
-const createSealStore = () => {
-  const { subscribe, set, update } = writable<SealState>({
-    pilgrim: null, accessSeal: null, refreshSeal: null,
-    isAuthenticated: false, isLoading: true
-  });
-
-  return {
-    subscribe,
-    attune: (pilgrim: Pilgrim, accessSeal: string, refreshSeal: string) => {
-      localStorage.setItem('accessSeal', accessSeal);
-      localStorage.setItem('refreshSeal', refreshSeal);
-      set({ pilgrim, accessSeal, refreshSeal, isAuthenticated: true, isLoading: false });
-    },
-    sever: () => {
-      localStorage.removeItem('accessSeal');
-      localStorage.removeItem('refreshSeal');
-      set({ pilgrim: null, accessSeal: null, refreshSeal: null, isAuthenticated: false, isLoading: false });
-    },
-    setPilgrim: (pilgrim: Pilgrim) => update(s => ({ ...s, pilgrim })),
-    setLoading: (isLoading: boolean) => update(s => ({ ...s, isLoading })),
-    init: () => {
-      const seal = localStorage.getItem('accessSeal');
-      if (seal) { /* validate */ }
-      update(s => ({ ...s, isLoading: false }));
-    }
-  };
-};
-
-export const sealStore = createSealStore();
-export const isAuthenticated = derived(sealStore, $seal => $seal.isAuthenticated);
-export const currentPilgrim = derived(sealStore, $seal => $seal.pilgrim);
-```
-
-### 4.2 Vault Store
-```typescript
-import { writable, derived } from 'svelte/store';
-import type { Treasury, Chronicle } from '$lib/types/vault';
-
-const createVaultStore = () => {
+function createAuthStore() {
   const { subscribe, set, update } = writable<{
-    treasury: Treasury | null;
-    chronicles: Chronicle[];
+    user: User | null;
+    tokens: AuthTokens | null;
     isLoading: boolean;
-  }>({ treasury: null, chronicles: [], isLoading: false });
+  }>({ user: null, tokens: null, isLoading: true });
 
   return {
     subscribe,
-    setTreasury: (treasury: Treasury) => update(s => ({ ...s, treasury })),
-    setChronicles: (chronicles: Chronicle[]) => update(s => ({ ...s, chronicles })),
-    addChronicle: (chronicle: Chronicle) => update(s => ({ ...s, chronicles: [chronicle, ...s.chronicles] })),
+    setAuth: (user: User, tokens: AuthTokens) => set({ user, tokens, isLoading: false }),
+    clearAuth: () => set({ user: null, tokens: null, isLoading: false }),
     setLoading: (isLoading: boolean) => update(s => ({ ...s, isLoading })),
-    updateTreasury: (delta: number) => update(s => s.treasury ? {
-      ...s, treasury: { ...s.treasury, availableTreasury: s.treasury.availableTreasury + delta }
-    } : s)
+    updateUser: (user: User) => update(s => ({ ...s, user })),
   };
-};
+}
 
-export const vaultStore = createVaultStore();
-```
+export const authStore = createAuthStore();
 
-### 4.3 Covenant Store
-```typescript
-import { writable } from 'svelte/store';
-import type { Covenant, CovenantListItem } from '$lib/types/covenant';
+export const isAuthenticated = derived(authStore, $auth => !!$auth.tokens?.accessToken);
+export const isAdmin = derived(authStore, $auth => $auth.user?.role === "ADMIN");
+export const currentUser = derived(authStore, $auth => $auth.user);
 
-const createCovenantStore = () => {
-  const { subscribe, set, update } = writable<{
-    covenants: CovenantListItem[];
-    currentCovenant: Covenant | null;
-    isLoading: boolean;
-    activeTab: 'INITIATOR' | 'COUNTERPART' | 'ALL';
-  }>({ covenants: [], currentCovenant: null, isLoading: false, activeTab: 'ALL' });
+// src/lib/stores/wallet.ts
+import { writable, derived } from "svelte/store";
+import type { Wallet, Transaction } from "$lib/types";
 
-  return {
-    subscribe,
-    setCovenants: (covenants: CovenantListItem[]) => update(s => ({ ...s, covenants })),
-    setCurrentCovenant: (covenant: Covenant | null) => update(s => ({ ...s, currentCovenant: covenant })),
-    updateCovenantStatus: (covenantId: string, status: string) => update(s => ({
-      ...s,
-      covenants: s.covenants.map(c => c.covenantId === covenantId ? { ...c, status } : c),
-      currentCovenant: s.currentCovenant?.covenantId === covenantId ? { ...s.currentCovenant, status } : s.currentCovenant
-    })),
-    setActiveTab: (tab: 'INITIATOR' | 'COUNTERPART' | 'ALL') => update(s => ({ ...s, activeTab: tab })),
-    setLoading: (isLoading: boolean) => update(s => ({ ...s, isLoading }))
-  };
-};
+export const walletStore = writable<Wallet | null>(null);
+export const transactionsStore = writable<Transaction[]>([]);
+export const walletLoading = writable(false);
 
-export const covenantStore = createCovenantStore();
+export const formattedBalance = derived(walletStore, $w => {
+  if (!$w) return "Rp 0";
+  return new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    minimumFractionDigits: 0,
+  }).format($w.availableBalance);
+});
+
+// src/lib/stores/rooms.ts
+import { writable } from "svelte/store";
+import type { Room } from "$lib/types";
+
+export const roomsStore = writable<Room[]>([]);
+export const activeRoomStore = writable<Room | null>(null);
+export const roomsLoading = writable(false);
+
+// src/lib/stores/notifications.ts
+import { writable } from "svelte/store";
+
+export interface Notification {
+  id: string;
+  type: "success" | "error" | "warning" | "info";
+  title: string;
+  message: string;
+  duration?: number;
+}
+
+export const notifications = writable<Notification[]>([]);
+
+export function addNotification(notification: Omit<Notification, "id">) {
+  const id = crypto.randomUUID();
+  notifications.update(n => [...n, { ...notification, id }]);
+  setTimeout(() => {
+    notifications.update(n => n.filter(item => item.id !== id));
+  }, notification.duration || 5000);
+}
+
+// src/lib/stores/websocket.ts
+import { writable } from "svelte/store";
+
+export const wsConnectionStatus = writable<"connected" | "connecting" | "disconnected">("disconnected");
+export const wsUnreadCounts = writable<Record<string, number>>({});
 ```
 
 ---
 
-## 5. API Client — The Seal Bearer
+## 5. API Client
 
 ```typescript
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1';
+// src/lib/api/client.ts
+import { browser } from "$app/environment";
+import { authStore } from "$lib/stores/auth";
+import { goto } from "$app/navigation";
+import type { ApiError } from "$lib/types";
 
-class SealBearer {
-  private async invoke<T>(endpoint: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
-    const seal = localStorage.getItem('accessSeal');
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      ...(seal && { 'Authorization': `SacredSeal ${seal}` }),
-      ...((options.body && !(options.body instanceof FormData)) && { 'Content-Type': 'application/json' }),
-      ...(options.headers as Record<string, string>)
+const API_BASE = "http://localhost:8080/api/v1";
+
+async function refreshAccessToken(): Promise<string | null> {
+  const tokens = authStore;
+  // Implementation: call /auth/refresh
+  return null;
+}
+
+export async function apiFetch<T>(
+  endpoint: string,
+  options: RequestInit = {}
+): Promise<T> {
+  const url = `${API_BASE}${endpoint}`;
+
+  let authStoreValue: any;
+  authStore.subscribe(s => { authStoreValue = s; })();
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...((options.headers as Record<string, string>) || {}),
+  };
+
+  if (authStoreValue?.tokens?.accessToken) {
+    headers["Authorization"] = `Bearer ${authStoreValue.tokens.accessToken}`;
+  }
+
+  const response = await fetch(url, { ...options, headers });
+
+  if (response.status === 401) {
+    // Try refresh token
+    const newToken = await refreshAccessToken();
+    if (newToken) {
+      headers["Authorization"] = `Bearer ${newToken}`;
+      const retryResponse = await fetch(url, { ...options, headers });
+      if (!retryResponse.ok) throw await retryResponse.json();
+      return retryResponse.json();
+    }
+    authStore.clearAuth();
+    if (browser) goto("/login");
+    throw new Error("Session expired");
+  }
+
+  if (!response.ok) {
+    const error: ApiError = await response.json();
+    throw error;
+  }
+
+  if (response.status === 204) return undefined as T;
+  return response.json();
+}
+
+// Service-specific clients
+export const authApi = {
+  login: (data: any) => apiFetch("/auth/login", { method: "POST", body: JSON.stringify(data) }),
+  register: (data: any) => apiFetch("/auth/register", { method: "POST", body: JSON.stringify(data) }),
+  me: () => apiFetch("/auth/me"),
+  logout: () => apiFetch("/auth/logout", { method: "POST" }),
+  verifyPin: (pin: string) => apiFetch("/auth/verify-pin", { method: "POST", body: JSON.stringify({ pin }) }),
+};
+
+export const walletApi = {
+  getBalance: () => apiFetch("/wallet/balance"),
+  getTransactions: (params?: string) => apiFetch(`/wallet/transactions?${params || ""}`),
+  topup: (data: any) => apiFetch("/wallet/topup", { method: "POST", body: JSON.stringify(data) }),
+  transfer: (data: any) => apiFetch("/wallet/transfer", { method: "POST", body: JSON.stringify(data) }),
+  getBankAccounts: () => apiFetch("/wallet/bank-accounts"),
+};
+
+export const roomApi = {
+  getRooms: (params?: string) => apiFetch(`/room/?${params || ""}`),
+  getRoom: (id: string) => apiFetch(`/room/${id}`),
+  createRoom: (data: any) => apiFetch("/room/", { method: "POST", body: JSON.stringify(data) }),
+  fundRoom: (id: string, pin: string) => apiFetch(`/room/${id}/fund`, { method: "POST", body: JSON.stringify({ pin }) }),
+  deliverRoom: (id: string, data: any) => apiFetch(`/room/${id}/deliver`, { method: "POST", body: JSON.stringify(data) }),
+  confirmRoom: (id: string, data: any) => apiFetch(`/room/${id}/confirm`, { method: "POST", body: JSON.stringify(data) }),
+  disputeRoom: (id: string, data: any) => apiFetch(`/room/${id}/dispute`, { method: "POST", body: JSON.stringify(data) }),
+};
+
+export const chatApi = {
+  getRooms: () => apiFetch("/chat/rooms"),
+  getMessages: (roomId: string, params?: string) => apiFetch(`/chat/rooms/${roomId}/messages?${params || ""}`),
+  markRead: (roomId: string) => apiFetch(`/chat/rooms/${roomId}/read`, { method: "POST" }),
+};
+```
+
+---
+
+## 6. WebSocket Client
+
+```typescript
+// src/lib/websocket/manager.ts
+import { wsConnectionStatus, wsUnreadCounts } from "$lib/stores/websocket";
+import { authStore } from "$lib/stores/auth";
+import { addNotification } from "$lib/stores/notifications";
+import type { ChatMessage } from "$lib/types";
+
+class WebSocketManager {
+  private ws: WebSocket | null = null;
+  private reconnectAttempts = 0;
+  private maxReconnectAttempts = 5;
+  private reconnectDelay = 1000;
+  private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
+  private messageHandlers: Map<string, ((msg: any) => void)[]> = new Map();
+
+  connect() {
+    let token: string | undefined;
+    authStore.subscribe(s => { token = s.tokens?.accessToken; })();
+
+    if (!token) return;
+
+    wsConnectionStatus.set("connecting");
+    this.ws = new WebSocket(`ws://localhost:8080/ws/chat?token=${token}`);
+
+    this.ws.onopen = () => {
+      wsConnectionStatus.set("connected");
+      this.reconnectAttempts = 0;
+      this.startHeartbeat();
     };
 
-    const response = await fetch(`${API_BASE}${endpoint}`, { ...options, headers });
-    if (response.status === 401) {
-      const renewed = await this.renewSeal();
-      if (renewed) return this.invoke(endpoint, options);
-      sealStore.sever();
-      throw new Error('Your seal has faded. Please perform the Rite of Return.');
+    this.ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      this.handleMessage(data);
+    };
+
+    this.ws.onclose = () => {
+      wsConnectionStatus.set("disconnected");
+      this.stopHeartbeat();
+      this.attemptReconnect();
+    };
+
+    this.ws.onerror = (error) => {
+      console.error("WebSocket error:", error);
+    };
+  }
+
+  private handleMessage(data: any) {
+    switch (data.type) {
+      case "NEW_MESSAGE":
+        this.emit("new_message", data);
+        if (data.senderId !== this.getCurrentUserId()) {
+          wsUnreadCounts.update(counts => ({
+            ...counts,
+            [data.roomId]: (counts[data.roomId] || 0) + 1,
+          }));
+        }
+        break;
+      case "ROOM_STATUS_UPDATE":
+        this.emit("room_status", data);
+        break;
+      case "NOTIFICATION":
+        addNotification({
+          type: data.notificationType || "info",
+          title: data.title,
+          message: data.message,
+        });
+        break;
     }
-    const data = await response.json();
-    if (!data.success) throw new ApiError(data.error);
-    return data;
   }
 
-  async renewSeal(): Promise<boolean> {
-    const refreshSeal = localStorage.getItem('refreshSeal');
-    if (!refreshSeal) return false;
-    try {
-      const res = await fetch(`${API_BASE}/seal/renew`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refreshSeal })
-      });
-      const data = await res.json();
-      if (data.success) { localStorage.setItem('accessSeal', data.data.accessSeal); return true; }
-    } catch { return false; }
-    return false;
+  send(message: object) {
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify(message));
+    }
   }
 
-  get<T>(endpoint: string) { return this.invoke<T>(endpoint, { method: 'GET' }); }
-  post<T>(endpoint: string, body: unknown, covenantKey?: string) {
-    const headers: Record<string, string> = {};
-    if (covenantKey) headers['Covenant-Key'] = covenantKey;
-    return this.invoke<T>(endpoint, { method: 'POST', body: JSON.stringify(body), headers });
+  joinRoom(roomId: string) {
+    this.send({ type: "JOIN_ROOM", roomId });
   }
-  put<T>(endpoint: string, body: unknown) { return this.invoke<T>(endpoint, { method: 'PUT', body: JSON.stringify(body) }); }
-  delete<T>(endpoint: string) { return this.invoke<T>(endpoint, { method: 'DELETE' }); }
+
+  leaveRoom(roomId: string) {
+    this.send({ type: "LEAVE_ROOM", roomId });
+  }
+
+  sendMessage(roomId: string, content: string, messageType: string = "TEXT") {
+    this.send({ type: "SEND_MESSAGE", roomId, content, messageType });
+  }
+
+  on(event: string, handler: (msg: any) => void) {
+    if (!this.messageHandlers.has(event)) {
+      this.messageHandlers.set(event, []);
+    }
+    this.messageHandlers.get(event)!.push(handler);
+  }
+
+  off(event: string, handler: (msg: any) => void) {
+    const handlers = this.messageHandlers.get(event);
+    if (handlers) {
+      this.messageHandlers.set(event, handlers.filter(h => h !== handler));
+    }
+  }
+
+  private emit(event: string, data: any) {
+    this.messageHandlers.get(event)?.forEach(handler => handler(data));
+  }
+
+  private startHeartbeat() {
+    this.heartbeatInterval = setInterval(() => {
+      this.send({ type: "PING" });
+    }, 30000);
+  }
+
+  private stopHeartbeat() {
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = null;
+    }
+  }
+
+  private attemptReconnect() {
+    if (this.reconnectAttempts >= this.maxReconnectAttempts) return;
+
+    setTimeout(() => {
+      this.reconnectAttempts++;
+      this.connect();
+    }, this.reconnectDelay * Math.pow(2, this.reconnectAttempts));
+  }
+
+  private getCurrentUserId(): string | undefined {
+    let userId: string | undefined;
+    authStore.subscribe(s => { userId = s.user?.id; })();
+    return userId;
+  }
+
+  disconnect() {
+    this.stopHeartbeat();
+    this.ws?.close();
+    this.ws = null;
+  }
 }
 
-export const bearer = new SealBearer();
+export const wsManager = new WebSocketManager();
 ```
 
 ---
 
-## 6. Page Specifications
+## 7. Page Specifications
 
-### 6.1 Sanctum Entrance (`/`)
-- Hero: "The Eyes of the Priestess see all transactions"
-- Feature highlights: The Covenant, The Seal, The Judgment
-- How it works: 4 steps (Forge → Accept → Fulfill → Confirm)
-- CTA: "Attune Your Seal"
+### 7.1 Route Structure
 
-### 6.2 Observatory (`/sanctum/observatory`)
-- Treasury card, quick actions, stats, recent covenants/chronicles, chart
-
-### 6.3 Vault (`/sanctum/vault`)
-- Treasury display, actions (Offering, Withdrawal, Tithing), chronicle history
-
-### 6.4 Covenant Hall (`/sanctum/covenant`)
-- Tabs, filter, covenant cards, "Forge New Covenant" CTA
-
-### 6.5 Covenant Chamber (`/sanctum/covenant/[id]`)
-- Header, parties, timeline, communion panel, action panel, countdown
-
-### 6.6 Forge Covenant (`/sanctum/covenant/forge`)
-- Multi-step: find counterpart → item details → deadline → PIN → success
-
-### 6.7 Profile (`/sanctum/profile`)
-- Pilgrim card, stats, settings (transmute PIN, omens, theme), bank accounts, sever seal
-
----
-
-## 7. Design System — The Priestess's Aesthetic
-
-### 7.1 Color Palette
-```css
-:root {
-  --primary-50: #f5f3ff; --primary-100: #ede9fe; --primary-200: #ddd6fe;
-  --primary-300: #c4b5fd; --primary-400: #a78bfa; --primary-500: #8b5cf6;
-  --primary-600: #7c3aed; --primary-700: #6d28d9; --primary-800: #5b21b6;
-  --primary-900: #4c1d95;
-  --gold-400: #fbbf24; --gold-500: #f59e0b; --gold-600: #d97706;
-  --void-900: #0f0a1a; --void-800: #1a1025; --void-700: #2d1b4e;
-  --canvas: #faf8ff; --canvas-soft: #f0ecfa; --canvas-softer: #f5f3ff;
-  --surface-pressed: #e9e5f5;
-  --ink: #1a1025; --body: #5e5e5e; --mute: #9ca3af;
-  --on-dark: #ffffff; --hairline-mid: #6b7280;
-  --success: #10b981; --warning: #f59e0b; --danger: #ef4444;
-}
+```
+src/routes/
+├── (auth)/                    → Auth layout (no sidebar, centered)
+│   ├── login/
+│   │   └── +page.svelte
+│   ├── register/
+│   │   └── +page.svelte
+│   └── set-pin/
+│       └── +page.svelte
+│
+├── (app)/                     → App layout (sidebar + top nav)
+│   ├── +layout.svelte
+│   ├── dashboard/
+│   │   └── +page.svelte
+│   ├── wallet/
+│   │   └── +page.svelte
+│   ├── transfer/
+│   │   └── +page.svelte
+│   ├── topup/
+│   │   └── +page.svelte
+│   ├── withdraw/
+│   │   └── +page.svelte
+│   ├── rooms/
+│   │   ├── +page.svelte
+│   │   └── [id]/
+│   │       └── +page.svelte
+│   ├── chat/
+│   │   ├── +page.svelte
+│   │   └── [roomId]/
+│   │       └── +page.svelte
+│   ├── history/
+│   │   └── +page.svelte
+│   ├── disputes/
+│   │   ├── +page.svelte
+│   │   └── [id]/
+│   │       └── +page.svelte
+│   └── profile/
+│       └── +page.svelte
+│
+├── admin/                     → Admin layout
+│   ├── +layout.svelte
+│   ├── users/
+│   │   └── +page.svelte
+│   ├── disputes/
+│   │   └── +page.svelte
+│   └── transactions/
+│       └── +page.svelte
+│
+├── +layout.svelte             → Root layout (fonts, providers)
+├── +page.svelte               → Landing page (marketing)
+└── +error.svelte              → Error boundary
 ```
 
-### 7.2 Status Colors
-| Status | Color |
-|--------|-------|
-| FORGED | amber |
-| ACCEPTED | primary-600 |
-| DELIVERED | purple |
-| FULFILLED | success |
-| JUDGMENT | danger |
-| BROKEN | gray |
-| EXPIRED | gray |
+### 7.2 Layout: Root (`+layout.svelte`)
 
-### 7.3 Typography
-- Font: Inter (Google Fonts)
-- Display: weight 700, tight line-height
-- Scale: Display 3rem, H1 2.25rem, H2 1.5rem, H3 1.25rem, Body 1rem, Small 0.875rem, Caption 0.75rem
+- Load fonts: Cormorant Garamond, Inter, JetBrains Mono (Google Fonts or self-hosted)
+- Global CSS variables mapped ke Tailwind tokens
+- Toast notification container (fixed top-right)
+- WebSocket connection manager (on mount jika authenticated)
 
-### 7.4 Spacing
-- Base: 4px, Scale: 4,8,12,16,20,24,32,40,48,64,80,96
-- Radius: 4px(sm), 8px(md), 12px(lg), 16px(xl), 9999px(full)
+### 7.3 Layout: Auth (`(auth)/+layout.svelte`)
+
+- Full-height cream canvas (`bg-canvas`)
+- Centered card container (max-width 420px)
+- Logo EyesOfPriestess (slab-serif "EyesOfPriestess" dengan coral accent)
+- No sidebar, no top navigation
+
+### 7.4 Layout: App (`(app)/+layout.svelte`)
+
+- **Top Navigation:** 64px height, cream canvas, logo kiri, nav links tengah (Dashboard, Wallet, Rooms, Chat, History), profile dropdown kanan
+- **Sidebar:** 280px width (desktop), collapsible (tablet), hidden (mobile dengan drawer)
+- **Main Content:** flex-1, cream canvas background, generous padding
+- **Bottom bar:** Mobile navigation (icon + label)
+
+### 7.5 Page: Dashboard (`/dashboard`)
+
+**Surface:** Cream canvas with alternating dark navy cards
+
+**Sections:**
+1. **Welcome Band** — `display-md` greeting: "Selamat datang, {name}" — Cormorant Garamond
+2. **Balance Cards Row** (3-up on desktop):
+   - Available Balance — `surface-card` background, large serif number
+   - Escrow Balance — `surface-card` background
+   - Total Balance — `surface-dark` card, cream text (dark navy product chrome)
+3. **Quick Actions** — Horizontal row: Top-up, Transfer, Create Room, Withdraw — coral primary buttons
+4. **Recent Activity** — `surface-card` table/list, 5 latest transactions dengan icon type + amount + status badge
+5. **Active Rooms** — Grid of room cards (2-up), showing room code, title, status badge, counterparty
+6. **CTA Band** — Full-width coral (`bg-primary`) callout: "Jual beli lebih aman dengan EyesOfPriestess" — serif headline, cream button
+
+### 7.6 Page: Wallet (`/wallet`)
+
+**Surface:** Cream canvas
+
+**Sections:**
+1. **Balance Header** — Large serif display number, update terakhir
+2. **Action Buttons** — Primary coral: Top-up, Transfer, Withdraw
+3. **Transaction History** — Filterable table:
+   - Columns: Type icon, Description, Amount (IN green / OUT coral), Status badge, Date
+   - Filters: Type dropdown, Date range, Status tabs
+   - Pagination
+4. **Bank Accounts** — List of saved accounts dengan primary badge
+
+### 7.7 Page: Room Detail (`/rooms/[id]`)
+
+**Surface:** Cream canvas dengan dark navy sidebar untuk chat
+
+**Layout:** Two-column (desktop) / stacked (mobile)
+- **Left (60%):** Room information
+  - Room code badge (pill, coral)
+  - Title — `title-lg`
+  - Status timeline (vertical stepper)
+  - Item details & price
+  - Counterparty card dengan avatar
+  - Action buttons (contextual by status):
+    - WAITING_PAYMENT: "Bayar Sekarang" (coral primary)
+    - FUNDED: "Konfirmasi Pengiriman" (seller) / tunggu (buyer)
+    - DELIVERED: "Konfirmasi Penerimaan" (buyer) / tunggu (seller)
+    - DISPUTED: "Lihat Dispute"
+  - Delivery proofs (grid of images)
+- **Right (40%):** Chat panel
+  - Dark navy (`surface-dark`) background — product chrome feel
+  - Message list dengan bubbles
+  - Input area di bottom
+  - System messages (escrow status updates) styled differently
+
+### 7.8 Page: Chat (`/chat`)
+
+**Surface:** Cream canvas list + dark navy chat area
+
+**Layout:** Two-column persistent (like WhatsApp Web)
+- **Left:** Chat room list
+  - Search bar
+  - Room items: avatar, name, last message preview, unread badge, timestamp
+  - Status indicator (online/offline)
+- **Right:** Active chat
+  - Header: room name, escrow status badge, info button
+  - Messages: alternating bubbles, timestamp grouping
+  - Input: text + attachment button + send button (coral)
+
+### 7.9 Page: Landing (`/`)
+
+**Surface:** Alternating cream → dark navy → coral bands (editorial pacing)
+
+**Sections:**
+1. **Hero Band** — Full-width cream:
+   - `display-xl` headline: "Transaksi P2P Tanpa Rasa Khawatir" — Cormorant Garamond
+   - Sub-headline: body text explaining escrow concept
+   - Two buttons: "Mulai Sekarang" (coral primary) + "Pelajari Cara Kerja" (secondary outline)
+   - Right: Dark navy product mockup card showing room interface
+2. **How It Works** — 3-up feature cards (`surface-card`):
+   - Step 1: Buat Room
+   - Step 2: Dana Diamankan
+   - Step 3: Barang Diterima, Dana Dilepas
+3. **Trust Indicators** — Dark navy band:
+   - Stats: "10,000+ Transaksi Aman", "Rp 5M+ Nilai Escrow", "0% Rekber Scam"
+   - Code-window style presentation (monospace numbers)
+4. **Use Cases** — Category tabs (Game, Marketplace, Jasa):
+   - Active tab: `surface-card` background
+   - Content: Use case description + testimonial card
+5. **Security** — Cream band:
+   - Feature cards: Insta-Ban, PIN Protection, Auto-Release, Dispute Resolution
+6. **CTA Band Coral** — Full-width coral:
+   - `display-sm` headline: "Siap Bertransaksi dengan Aman?"
+   - Cream button: "Daftar Gratis"
+7. **Footer** — Dark navy (`surface-dark`):
+   - 4-column link list
+   - Copyright, social links
 
 ---
 
-## 8. Responsive Breakpoints
+## 8. Component Specifications
 
-| Breakpoint | Width | Layout |
-|------------|-------|--------|
-| Mobile | < 640px | Single column, bottom nav |
-| Tablet | 640-1024px | Two columns, collapsible sidebar |
-| Desktop | > 1024px | Three columns, fixed sidebar |
+### 8.1 Button Variants
+
+```svelte
+<!-- Primary -->
+<button class="bg-primary text-on-primary font-sans font-medium text-sm px-5 py-3 rounded-md hover:bg-primary-active transition-colors disabled:bg-primary-disabled disabled:text-muted">
+  {label}
+</button>
+
+<!-- Secondary -->
+<button class="bg-canvas text-ink font-sans font-medium text-sm px-5 py-3 rounded-md border border-hairline hover:bg-surface-soft transition-colors">
+  {label}
+</button>
+
+<!-- Secondary on Dark -->
+<button class="bg-surface-dark-elevated text-on-dark font-sans font-medium text-sm px-5 py-3 rounded-md hover:bg-surface-dark-soft transition-colors">
+  {label}
+</button>
+
+<!-- Text Link -->
+<button class="bg-transparent text-primary font-sans font-medium text-sm hover:underline">
+  {label}
+</button>
+
+<!-- Icon Circular -->
+<button class="w-9 h-9 rounded-full bg-canvas border border-hairline flex items-center justify-center text-ink hover:bg-surface-soft transition-colors">
+  <Icon />
+</button>
+```
+
+### 8.2 Card Variants
+
+```svelte
+<!-- Feature Card -->
+<div class="bg-surface-card rounded-lg p-8 text-ink">
+  <div class="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center mb-4">
+    <Icon class="text-primary" />
+  </div>
+  <h3 class="font-sans font-medium text-title-md mb-2">{title}</h3>
+  <p class="font-sans text-body-md text-body">{description}</p>
+</div>
+
+<!-- Product Mockup Card (Dark) -->
+<div class="bg-surface-dark rounded-lg p-8 text-on-dark">
+  <h3 class="font-sans font-medium text-title-md mb-4">{title}</h3>
+  <div class="bg-surface-dark-soft rounded-md p-4 font-mono text-sm">
+    <!-- Code / data content -->
+  </div>
+</div>
+
+<!-- Pricing / Tier Card -->
+<div class="bg-canvas border border-hairline rounded-lg p-8">
+  <h3 class="font-sans font-medium text-title-lg">{planName}</h3>
+  <p class="font-display text-display-sm mt-2">{price}</p>
+  <ul class="mt-6 space-y-3">
+    {#each features as feature}
+      <li class="font-sans text-body-md flex items-center gap-2">
+        <Check class="text-success w-4 h-4" />
+        {feature}
+      </li>
+    {/each}
+  </ul>
+  <Button class="w-full mt-8">{cta}</Button>
+</div>
+
+<!-- Callout Card (Coral) -->
+<div class="bg-primary rounded-lg p-12 text-on-primary">
+  <h2 class="font-display text-display-sm">{headline}</h2>
+  <p class="font-sans text-body-md mt-3 opacity-90">{description}</p>
+  <Button variant="secondary" class="mt-6 bg-canvas text-ink">{cta}</Button>
+</div>
+```
+
+### 8.3 Input Fields
+
+```svelte
+<!-- Text Input -->
+<div class="space-y-1.5">
+  <label class="font-sans text-caption font-medium text-body">{label}</label>
+  <input
+    type="text"
+    class="w-full h-10 px-3.5 py-2.5 bg-canvas border border-hairline rounded-md font-sans text-body-md text-ink placeholder:text-muted-soft focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all"
+    placeholder={placeholder}
+  />
+  {#if error}
+    <p class="font-sans text-caption text-error">{error}</p>
+  {/if}
+</div>
+
+<!-- PIN Input (6 digits) -->
+<div class="flex gap-2 justify-center">
+  {#each Array(6) as _, i}
+    <input
+      type="password"
+      maxlength="1"
+      class="w-12 h-14 text-center bg-canvas border-2 border-hairline rounded-md font-sans text-title-lg text-ink focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all"
+    />
+  {/each}
+</div>
+```
+
+### 8.4 Badges
+
+```svelte
+<!-- Pill Badge -->
+<span class="inline-flex items-center px-3 py-1 rounded-pill bg-surface-card text-ink font-sans text-caption font-medium">
+  {label}
+</span>
+
+<!-- Coral Badge -->
+<span class="inline-flex items-center px-3 py-1 rounded-pill bg-primary text-on-primary font-sans text-caption-upper font-medium tracking-wider">
+  {label}
+</span>
+
+<!-- Status Badges -->
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-pill font-sans text-caption font-medium
+  {status === 'SUCCESS' ? 'bg-success/10 text-success' : ''}
+  {status === 'PENDING' ? 'bg-warning/10 text-warning' : ''}
+  {status === 'FAILED' ? 'bg-error/10 text-error' : ''}
+">
+  {status}
+</span>
+```
+
+### 8.5 Navigation
+
+```svelte
+<!-- Top Nav -->
+<nav class="h-16 bg-canvas border-b border-hairline-soft sticky top-0 z-50">
+  <div class="max-w-7xl mx-auto px-6 h-full flex items-center justify-between">
+    <!-- Logo -->
+    <a href="/" class="flex items-center gap-2">
+      <span class="font-display text-display-sm text-ink tracking-tight">EyesOfPriestess</span>
+    </a>
+
+    <!-- Nav Links -->
+    <div class="hidden md:flex items-center gap-1">
+      {#each navItems as item}
+        <a href={item.href} class="px-3 py-2 rounded-md font-sans text-nav-link font-medium text-ink hover:bg-surface-soft transition-colors">
+          {item.label}
+        </a>
+      {/each}
+    </div>
+
+    <!-- Right Cluster -->
+    <div class="flex items-center gap-3">
+      <a href="/login" class="font-sans text-nav-link font-medium text-ink hover:text-primary transition-colors">Masuk</a>
+      <Button variant="primary" class="h-9 px-4">Daftar</Button>
+    </div>
+  </div>
+</nav>
+
+<!-- Sidebar (App) -->
+<aside class="w-[280px] bg-canvas border-r border-hairline-soft h-screen sticky top-0 flex flex-col">
+  <div class="p-6">
+    <span class="font-display text-display-sm text-ink">EyesOfPriestess</span>
+  </div>
+  <nav class="flex-1 px-4 space-y-1">
+    {#each sidebarItems as item}
+      <a href={item.href} class="flex items-center gap-3 px-3 py-2.5 rounded-md font-sans text-body-md text-ink hover:bg-surface-soft transition-colors {isActive ? 'bg-surface-card font-medium' : ''}">
+        <Icon class="w-5 h-5" />
+        {item.label}
+        {#if item.badge}
+          <span class="ml-auto bg-primary text-on-primary text-xs px-2 py-0.5 rounded-full">{item.badge}</span>
+        {/if}
+      </a>
+    {/each}
+  </nav>
+  <div class="p-4 border-t border-hairline-soft">
+    <!-- User mini profile -->
+  </div>
+</aside>
+```
 
 ---
 
-## 9. Animations
-- Page transitions: fade 200ms
-- Modal: scale + fade 150ms
-- Toast (Omen): slide from right 300ms
-- Loading: crystal pulse
-- Treasury: count-up
-- Status change: color transition 300ms
-- Communion: slide from bottom 150ms
-- Countdown: pulse last 10 min
+## 9. Responsive Breakpoints
+
+| Name | Width | Key Changes |
+|---|---|---|
+| Mobile | < 768px | Single column, hamburger nav, bottom bar, hero text 64→32px, cards 1-up |
+| Tablet | 768–1024px | Sidebar collapsible to icon-only, feature cards 2-up, rooms 2-up |
+| Desktop | 1024–1440px | Full sidebar, 3-up feature cards, split chat layout |
+| Wide | > 1440px | Max content width 1200px, more outer breathing room |
 
 ---
 
-*Next: Read `05-project-setup.md` for attunement instructions.*
+## 10. Animation & Motion Guidelines
+
+- **Page transitions:** Fade (150ms ease-out)
+- **Card hover:** Subtle lift `translateY(-2px)` + soft shadow (rare, use sparingly)
+- **Button press:** Scale 0.98 + darken background
+- **Toast:** Slide in from right (300ms ease-out), auto-dismiss fade (200ms)
+- **Modal:** Backdrop fade + content scale from 0.95 (200ms)
+- **Skeleton loading:** Pulse animation on `surface-soft` background
+- **Number counting:** Count-up animation untuk balance display
+- **Chat message:** Slide in from bottom (100ms stagger)
+
+---
+
+## 11. Asset Requirements
+
+### Fonts (Self-hosted recommended)
+- `Cormorant Garamond` — weights: 400, 500, 600 (display)
+- `Inter` — weights: 400, 500, 600 (body)
+- `JetBrains Mono` — weight: 400 (code)
+
+### Icons (Lucide)
+- Wallet, Send, ArrowDownLeft, ArrowUpRight, Shield, Lock, MessageSquare, Users, History, Settings, Bell, Search, ChevronRight, Check, X, AlertTriangle, Image, FileText, MoreVertical, LogOut, User, Home, Plus, Minus, Copy, ExternalLink
+
+### Images
+- Hero illustration: Line-art style, coral + dark navy strokes on cream
+- Empty states: Minimal line illustrations
+- Avatars: Default gradient or initials
+
+---
+
+*End of Frontend Specification*

@@ -1,997 +1,1020 @@
 # EyesOfPriestess — Backend API Specification
-## The Five Sanctums: REST API + Communion WebSocket
 
-**Base URL (via The Veil):** `http://localhost:8080/api/v1`  
-**Content-Type:** `application/json`  
-**Auth:** `Authorization: SacredSeal <jwt_access_token>`  
-**Idempotency:** `Covenant-Key: <uuid>` (for POST/PUT)  
+> **Version:** 1.0  
+> **Base URL:** `http://localhost:8080` (Gateway)  
+> **Auth:** Bearer JWT (RS256)  
+> **Content-Type:** `application/json`  
+> **Design System:** Warm Editorial (Cream Canvas + Coral Accent)
 
 ---
 
-## 1. Seal Sanctum (`/api/v1/seal`)
+## 1. API Gateway Routing
 
-### 1.1 Forge Identity (Register)
-```http
-POST /seal/forge
-Content-Type: application/json
+| Route Pattern | Target Service | Port |
+|---|---|---|
+| `/api/v1/auth/**` | Auth Service | 8081 |
+| `/api/v1/wallet/**` | Wallet Service | 8082 |
+| `/api/v1/room/**` | Room Escrow Service | 8083 |
+| `/api/v1/chat/**` | Chat Service | 8084 |
+| `/api/v1/dispute/**` | Dispute Service | 8085 |
+| `/ws/**` | Chat Service (WebSocket) | 8084 |
 
-Request:
+---
+
+## 2. Auth Service (`/api/v1/auth`)
+
+### 2.1 POST `/register`
+Register new user.
+
+**Request:**
+```json
 {
-  "phone": "+6281234567890",
-  "email": "pilgrim@sanctum.id",      // optional
-  "fullName": "Wanderer of the Void",
-  "password": "OriginiumSeal123!",
-  "pin": "123456"                   // 6 digit, numeric only
+  "email": "user@example.com",
+  "password": "SecurePass123!",
+  "fullName": "Budi Santoso",
+  "phoneNumber": "+6281234567890",
+  "username": "budisantoso"
 }
+```
 
-Response 201:
+**Response 201:**
+```json
 {
-  "success": true,
-  "data": {
-    "pilgrimId": "550e8400-e29b-41d4-a716-446655440000",
-    "phone": "+6281234567890",
-    "status": "attuned",
-    "attunedAt": "2026-08-06T20:00:00Z"
-  }
+  "id": "uuid",
+  "email": "user@example.com",
+  "fullName": "Budi Santoso",
+  "username": "budisantoso",
+  "createdAt": "2026-08-11T10:00:00Z",
+  "walletId": "uuid"
 }
+```
 
-Response 400:
+**Errors:**
+- `400` — Validation error (email format, password strength, phone format)
+- `409` — Email atau username sudah terdaftar
+- `429` — Rate limit exceeded
+
+---
+
+### 2.2 POST `/login`
+Authenticate user.
+
+**Request:**
+```json
 {
-  "success": false,
-  "error": {
-    "code": "VALIDATION_ERROR",
-    "message": "This resonance is already attuned to another pilgrim",
-    "field": "phone"
+  "email": "user@example.com",
+  "password": "SecurePass123!"
+}
+```
+
+**Response 200:**
+```json
+{
+  "accessToken": "eyJhbGciOiJSUzI1NiIs...",
+  "refreshToken": "dGhpcyBpcyBhIHJlZnJlc2g...",
+  "tokenType": "Bearer",
+  "expiresIn": 900,
+  "user": {
+    "id": "uuid",
+    "email": "user@example.com",
+    "fullName": "Budi Santoso",
+    "username": "budisantoso",
+    "role": "USER"
   }
 }
 ```
 
-### 1.2 Rite of Return (Login)
-```http
-POST /seal/rite
-Content-Type: application/json
+**Errors:**
+- `401` — Invalid credentials
+- `403` — Account banned (insta-ban active)
+- `429` — Too many login attempts
 
-Request:
-{
-  "phone": "+6281234567890",
-  "password": "OriginiumSeal123!",
-  "deviceId": "device-uuid-123"     // for device tracking
-}
+---
 
-Response 200:
-{
-  "success": true,
-  "data": {
-    "accessSeal": "eyJhbGciOiJSUzI1NiIs...",
-    "refreshSeal": "eyJhbGciOiJSUzI1NiIs...",
-    "expiresIn": 900,                // 15 minutes
-    "sealType": "Sacred",
-    "pilgrim": {
-      "id": "550e8400-e29b-41d4-a716-446655440000",
-      "phone": "+6281234567890",
-      "fullName": "Wanderer of the Void",
-      "attunementStatus": "unattuned",
-      "isSanctioned": false
-    }
-  }
-}
+### 2.3 POST `/refresh`
+Refresh access token.
 
-Response 401:
+**Request:**
+```json
 {
-  "success": false,
-  "error": {
-    "code": "INVALID_CREDENTIALS",
-    "message": "The resonance does not match the seal"
-  }
+  "refreshToken": "dGhpcyBpcyBhIHJlZnJlc2g..."
 }
 ```
 
-### 1.3 Renew Seal (Refresh Token)
-```http
-POST /seal/renew
-Content-Type: application/json
-
-Request:
+**Response 200:**
+```json
 {
-  "refreshSeal": "eyJhbGciOiJSUzI1NiIs..."
-}
-
-Response 200:
-{
-  "success": true,
-  "data": {
-    "accessSeal": "eyJhbGciOiJSUzI1NiIs...",
-    "expiresIn": 900
-  }
+  "accessToken": "eyJhbGciOiJSUzI1NiIs...",
+  "expiresIn": 900
 }
 ```
 
-### 1.4 Sever Seal (Logout)
-```http
-POST /seal/sever
-Authorization: SacredSeal <access_seal>
+**Errors:**
+- `401` — Invalid or expired refresh token
 
-Request:
+---
+
+### 2.4 POST `/logout`
+Invalidate tokens.
+
+**Headers:** `Authorization: Bearer {accessToken}`
+
+**Request:**
+```json
 {
-  "refreshSeal": "eyJhbGciOiJSUzI1NiIs..."
-}
-
-Response 200:
-{
-  "success": true,
-  "data": {
-    "message": "Your seal has been severed. Return safely, pilgrim."
-  }
-}
-// Note: Adds both access and refresh seal jti to Crystal sanction list
-```
-
-### 1.5 Request Omen (OTP)
-```http
-POST /seal/omen/request
-Content-Type: application/json
-
-Request:
-{
-  "phone": "+6281234567890",
-  "purpose": "FORGE"              // FORGE | RESET_PASSWORD | CHANGE_PHONE
-}
-
-Response 200:
-{
-  "success": true,
-  "data": {
-    "omenToken": "omen-verification-token-123",
-    "expiresIn": 300,                // 5 minutes
-    "message": "An omen has been sent to your resonance (SIMULATED: 123456)"
-  }
+  "refreshToken": "dGhpcyBpcyBhIHJlZnJlc2g...",
+  "allDevices": false
 }
 ```
 
-### 1.6 Verify Omen
-```http
-POST /seal/omen/verify
-Content-Type: application/json
+**Response 204:** No content
 
-Request:
-{
-  "omenToken": "omen-verification-token-123",
-  "omenCode": "123456"
-}
+---
 
-Response 200:
+### 2.5 POST `/set-pin`
+Set 6-digit transaction PIN (first time).
+
+**Headers:** `Authorization: Bearer {accessToken}`
+
+**Request:**
+```json
 {
-  "success": true,
-  "data": {
-    "verified": true,
-    "verificationToken": "verified-token-456"
-  }
+  "pin": "123456",
+  "confirmPin": "123456"
 }
 ```
 
-### 1.7 Transmute PIN
-```http
-PUT /seal/pin
-Authorization: SacredSeal <access_seal>
-Content-Type: application/json
+**Response 200:**
+```json
+{
+  "message": "PIN set successfully",
+  "pinSetAt": "2026-08-11T10:05:00Z"
+}
+```
 
-Request:
+**Errors:**
+- `400` — PIN tidak cocok atau tidak 6 digit
+- `409` — PIN sudah pernah di-set
+
+---
+
+### 2.6 POST `/change-pin`
+Change existing PIN.
+
+**Headers:** `Authorization: Bearer {accessToken}`
+
+**Request:**
+```json
 {
   "oldPin": "123456",
-  "newPin": "654321"
-}
-
-Response 200:
-{
-  "success": true,
-  "data": {
-    "message": "Your seal has been transmuted successfully"
-  }
+  "newPin": "654321",
+  "confirmNewPin": "654321"
 }
 ```
 
-### 1.8 Gaze Upon Self (Get Current Pilgrim)
-```http
-GET /seal/self
-Authorization: SacredSeal <access_seal>
+**Response 200:** `{ "message": "PIN changed successfully" }`
 
-Response 200:
+---
+
+### 2.7 POST `/verify-pin`
+Verify PIN untuk transaksi kritis.
+
+**Headers:** `Authorization: Bearer {accessToken}`
+
+**Request:**
+```json
 {
-  "success": true,
-  "data": {
-    "id": "550e8400-e29b-41d4-a716-446655440000",
-    "phone": "+6281234567890",
-    "email": "pilgrim@sanctum.id",
-    "fullName": "Wanderer of the Void",
-    "profilePhoto": "https://cdn.eyesofpriestess.id/avatars/550e8400.jpg",
-    "attunementStatus": "attuned",
-    "attunementIdHash": "3175********1234",    // masked
-    "attunedAt": "2026-08-01T10:00:00Z",
-    "isSanctioned": false,
-    "covenantScore": 4.8                      // 0-5, based on transaction history
-  }
+  "pin": "123456"
 }
 ```
 
-### 1.9 Update Self
-```http
-PUT /seal/self
-Authorization: SacredSeal <access_seal>
-Content-Type: application/json
-
-Request:
+**Response 200:**
+```json
 {
-  "fullName": "Wanderer of the Void, Updated",
-  "email": "newpath@sanctum.id"
+  "valid": true,
+  "verifiedAt": "2026-08-11T10:10:00Z"
 }
-
-Response 200: { ...updated pilgrim object }
 ```
 
-### 1.10 Oracle: Sanction Pilgrim (Insta-Ban)
-```http
-POST /seal/oracle/sanction
-Authorization: SacredSeal <oracle_access_seal>
-Content-Type: application/json
+**Errors:**
+- `403` — Invalid PIN (3 attempts = 15 min lock)
 
-Request:
-{
-  "pilgrimId": "550e8400-e29b-41d4-a716-446655440000",
-  "reason": "FRAUDULENT_ACTIVITY",
-  "description": "Multiple broken covenants with evidence of deception",
-  "sanctionDuration": "ETERNAL"           // ETERNAL | TEMPORARY (days)
-}
+---
 
-Response 200:
+### 2.8 GET `/me`
+Get current user profile.
+
+**Headers:** `Authorization: Bearer {accessToken}`
+
+**Response 200:**
+```json
 {
-  "success": true,
-  "data": {
-    "pilgrimId": "550e8400-e29b-41d4-a716-446655440000",
-    "status": "sanctioned",
-    "sanctionedAt": "2026-08-06T20:00:00Z",
-    "reason": "FRAUDULENT_ACTIVITY",
-    "sealsSevered": 3                  // number of active sessions revoked
-  }
+  "id": "uuid",
+  "email": "user@example.com",
+  "fullName": "Budi Santoso",
+  "username": "budisantoso",
+  "phoneNumber": "+6281234567890",
+  "role": "USER",
+  "isPinSet": true,
+  "isVerified": true,
+  "createdAt": "2026-08-11T10:00:00Z",
+  "updatedAt": "2026-08-11T10:05:00Z"
 }
-// Note: Publishes pilgrim.sanctioned event to RabbitMQ, all sanctums invalidate cache
 ```
 
 ---
 
-## 2. Vault Sanctum (`/api/v1/vault`)
+### 2.9 PUT `/me`
+Update profile.
 
-### 2.1 Gaze Upon Treasury (Get Balance)
-```http
-GET /vault/treasury
-Authorization: SacredSeal <access_seal>
+**Headers:** `Authorization: Bearer {accessToken}`
 
-Response 200:
+**Request:**
+```json
 {
-  "success": true,
-  "data": {
-    "availableTreasury": 1500000.00,      // IDR
-    "sealedTreasury": 500000.00,          // dana yang sedang di-hold dalam escrow
-    "totalTreasury": 2000000.00,
-    "currency": "IDR"
-  }
+  "fullName": "Budi Santoso Updated",
+  "phoneNumber": "+6289876543210"
 }
 ```
 
-### 2.2 Make Offering (Top-up)
-```http
-POST /vault/offering
-Authorization: SacredSeal <access_seal>
-Content-Type: application/json
-Covenant-Key: <uuid>
+**Response 200:** Updated user object
 
-Request:
-{
-  "amount": 100000.00,
-  "method": "VIRTUAL_ACCOUNT",         // VIRTUAL_ACCOUNT | E_WALLET | BANK_TRANSFER
-  "bank": "BCA",                       // for VA: BCA | BNI | BRI | MANDIRI
-  "eWalletType": null                  // for E_WALLET: GOPAY | OVO | DANA
-}
+---
 
-Response 201:
+### 2.10 POST `/forgot-password`
+Request password reset.
+
+**Request:**
+```json
 {
-  "success": true,
-  "data": {
-    "offeringId": "offering-uuid-789",
-    "amount": 100000.00,
-    "status": "PENDING",
-    "paymentDetails": {
-      "method": "VIRTUAL_ACCOUNT",
-      "vaNumber": "8899500012345678",
-      "bank": "BCA",
-      "expiryTime": "2026-08-06T23:59:59Z"
-    },
-    "createdAt": "2026-08-06T20:00:00Z"
-  }
+  "email": "user@example.com"
 }
 ```
 
-### 2.3 Offering Callback (Midtrans/Xendit Webhook)
-```http
-POST /vault/webhook/midtrans
-Content-Type: application/json
+**Response 200:** `{ "message": "Reset link sent if email exists" }`
 
-Request:
+---
+
+### 2.11 POST `/reset-password`
+Reset password dengan token.
+
+**Request:**
+```json
 {
-  "orderId": "offering-uuid-789",
+  "token": "reset-token-string",
+  "newPassword": "NewSecurePass123!",
+  "confirmPassword": "NewSecurePass123!"
+}
+```
+
+**Response 200:** `{ "message": "Password reset successful" }`
+
+---
+
+### 2.12 POST `/admin/ban` (ADMIN only)
+Insta-ban user.
+
+**Headers:** `Authorization: Bearer {adminToken}`
+
+**Request:**
+```json
+{
+  "userId": "uuid",
+  "reason": "Fraudulent activity detected",
+  "duration": "PERMANENT",
+  "banType": "FULL"
+}
+```
+
+**Response 200:**
+```json
+{
+  "message": "User banned successfully",
+  "banId": "uuid",
+  "bannedAt": "2026-08-11T10:15:00Z",
+  "expiresAt": null
+}
+```
+
+**Duration options:** `PERMANENT`, `TEMPORARY` (with `durationHours`)
+**Ban types:** `FULL`, `TRANSACTION_ONLY`, `ROOM_ONLY`
+
+---
+
+### 2.13 POST `/admin/unban` (ADMIN only)
+Unban user.
+
+**Request:**
+```json
+{
+  "userId": "uuid",
+  "reason": "Appeal approved"
+}
+```
+
+**Response 200:** `{ "message": "User unbanned successfully" }`
+
+---
+
+## 3. Wallet Service (`/api/v1/wallet`)
+
+### 3.1 GET `/balance`
+Get wallet balance.
+
+**Headers:** `Authorization: Bearer {accessToken}`
+
+**Response 200:**
+```json
+{
+  "walletId": "uuid",
+  "availableBalance": 1500000,
+  "escrowBalance": 500000,
+  "totalBalance": 2000000,
+  "currency": "IDR",
+  "lastUpdated": "2026-08-11T10:00:00Z"
+}
+```
+
+---
+
+### 3.2 POST `/topup`
+Create top-up order.
+
+**Headers:** `Authorization: Bearer {accessToken}`
+
+**Request:**
+```json
+{
+  "amount": 100000,
+  "method": "VIRTUAL_ACCOUNT",
+  "bankCode": "BCA",
+  "pin": "123456"
+}
+```
+
+**Response 201:**
+```json
+{
+  "orderId": "uuid",
+  "amount": 100000,
+  "method": "VIRTUAL_ACCOUNT",
+  "bankCode": "BCA",
+  "virtualAccountNumber": "9881234567890123",
+  "status": "PENDING",
+  "expiryTime": "2026-08-11T22:00:00Z",
+  "createdAt": "2026-08-11T10:00:00Z"
+}
+```
+
+**Methods:** `VIRTUAL_ACCOUNT`, `E_WALLET` (OVO, DANA, LinkAja), `RETAIL`
+
+---
+
+### 3.3 GET `/topup/{orderId}`
+Get top-up order status.
+
+**Response 200:**
+```json
+{
+  "orderId": "uuid",
+  "amount": 100000,
+  "status": "SUCCESS",
+  "paidAt": "2026-08-11T10:30:00Z",
+  "settledAt": "2026-08-11T10:31:00Z"
+}
+```
+
+**Status:** `PENDING`, `PAID`, `SUCCESS`, `FAILED`, `EXPIRED`
+
+---
+
+### 3.4 POST `/topup/callback` (Webhook)
+Payment gateway callback.
+
+**Headers:** `X-Callback-Token: {secret}`
+
+**Request:**
+```json
+{
+  "orderId": "uuid",
   "transactionStatus": "settlement",
-  "grossAmount": "100000.00",
   "paymentType": "bank_transfer",
-  "transactionTime": "2026-08-06T20:15:00Z"
+  "grossAmount": 100000,
+  "transactionTime": "2026-08-11T10:30:00Z"
 }
-
-Response 200: { "success": true }
 ```
 
-### 2.4 Withdrawal Ritual
-```http
-POST /vault/withdrawal
-Authorization: SacredSeal <access_seal>
-Content-Type: application/json
-Covenant-Key: <uuid>
+**Response 200:** `{ "message": "Callback processed" }`
 
-Request:
+---
+
+### 3.5 POST `/withdraw`
+Create withdraw request.
+
+**Headers:** `Authorization: Bearer {accessToken}`
+
+**Request:**
+```json
 {
-  "amount": 500000.00,
-  "bankAccount": {
-    "bankCode": "BCA",
-    "accountNumber": "1234567890",
-    "accountName": "Wanderer of the Void"
-  },
+  "amount": 500000,
+  "bankAccountId": "uuid",
   "pin": "123456"
 }
-
-Response 201:
-{
-  "success": true,
-  "data": {
-    "withdrawalId": "wdr-uuid-456",
-    "amount": 500000.00,
-    "tithe": 6500.00,
-    "netAmount": 493500.00,
-    "status": "PROCESSING",
-    "bankAccount": {
-      "bankCode": "BCA",
-      "accountNumber": "****7890",
-      "accountName": "Wanderer of the Void"
-    },
-    "estimatedCompletion": "2026-08-07T08:00:00Z",
-    "createdAt": "2026-08-06T20:00:00Z"
-  }
-}
 ```
 
-### 2.5 P2P Tithing (Direct Transfer)
-```http
-POST /vault/tithing
-Authorization: SacredSeal <access_seal>
-Content-Type: application/json
-Covenant-Key: <uuid>
-
-Request:
+**Response 201:**
+```json
 {
-  "recipientPhone": "+6289876543210",
-  "amount": 100000.00,
-  "note": "For the shared journey",
-  "pin": "123456"
-}
-
-Response 200:
-{
-  "success": true,
-  "data": {
-    "titheId": "tithe-uuid-123",
-    "senderId": "550e8400-e29b-41d4-a716-446655440000",
-    "recipientId": "660e8400-e29b-41d4-a716-446655440001",
-    "amount": 100000.00,
-    "tithe": 0.00,
-    "status": "COMPLETED",
-    "note": "For the shared journey",
-    "createdAt": "2026-08-06T20:00:00Z"
-  }
-}
-```
-
-### 2.6 Read Chronicles (Transaction History)
-```http
-GET /vault/chronicles?page=1&limit=20&filter=ALL&from=2026-08-01&to=2026-08-06
-Authorization: SacredSeal <access_seal>
-
-// filter: ALL | OFFERING | WITHDRAWAL | TITHING | SEAL_HOLD | SEAL_RELEASE | SEAL_REFUND | TITHE
-
-Response 200:
-{
-  "success": true,
-  "data": {
-    "chronicles": [
-      {
-        "id": "chr-uuid-123",
-        "type": "SEAL_HOLD",
-        "amount": -500000.00,
-        "status": "COMPLETED",
-        "description": "Seal hold for Covenant CVN-8X2K9",
-        "referenceId": "covenant-uuid-456",
-        "treasuryAfter": 1000000.00,
-        "createdAt": "2026-08-06T19:00:00Z"
-      }
-    ],
-    "pagination": {
-      "page": 1,
-      "limit": 20,
-      "total": 45,
-      "totalPages": 3
-    }
-  }
-}
-```
-
-### 2.7 Read Single Chronicle
-```http
-GET /vault/chronicles/:chronicleId
-Authorization: SacredSeal <access_seal>
-
-Response 200: { ...single chronicle object with full metadata }
-```
-
-### 2.8 List Banks
-```http
-GET /vault/banks
-Authorization: SacredSeal <access_seal>
-
-Response 200:
-{
-  "success": true,
-  "data": {
-    "banks": [
-      { "code": "BCA", "name": "Bank Central Asia" },
-      { "code": "BNI", "name": "Bank Negara Indonesia" },
-      { "code": "BRI", "name": "Bank Rakyat Indonesia" },
-      { "code": "MANDIRI", "name": "Bank Mandiri" }
-    ]
-  }
+  "withdrawId": "uuid",
+  "amount": 500000,
+  "fee": 6500,
+  "netAmount": 493500,
+  "status": "PENDING",
+  "estimatedArrival": "2026-08-12T10:00:00Z",
+  "createdAt": "2026-08-11T10:00:00Z"
 }
 ```
 
 ---
 
-## 3. Covenant Sanctum (`/api/v1/covenant`)
+### 3.6 POST `/transfer`
+P2P transfer ke user lain.
 
-### 3.1 Forge Covenant (Create Room)
-```http
-POST /covenant
-Authorization: SacredSeal <access_seal>
-Content-Type: application/json
-Covenant-Key: <uuid>
+**Headers:** `Authorization: Bearer {accessToken}`
 
-Request:
+**Request:**
+```json
 {
-  "counterpartPhone": "+6289876543210",
-  "itemName": "Akun Mobile Legends S25",
-  "itemDescription": "Akun tier Mythic, hero lengkap, skin 150+",
-  "category": "GAME",                  // GAME | MARKETPLACE | SERVICE
-  "amount": 750000.00,
-  "deadlineHours": 72,
+  "toUserId": "uuid",
+  "amount": 100000,
+  "note": "Pembayaran invoice #123",
   "pin": "123456"
 }
+```
 
-Response 201:
+**Response 201:**
+```json
 {
-  "success": true,
-  "data": {
-    "covenantId": "covenant-uuid-456",
-    "covenantCode": "CVN-8X2K9",
-    "initiatorId": "550e8400-e29b-41d4-a716-446655440000",
-    "counterpartId": "660e8400-e29b-41d4-a716-446655440001",
-    "itemName": "Akun Mobile Legends S25",
-    "itemDescription": "Akun tier Mythic, hero lengkap, skin 150+",
-    "category": "GAME",
-    "amount": 750000.00,
-    "status": "FORGED",
-    "deadlineAt": "2026-08-09T20:00:00Z",
-    "createdAt": "2026-08-06T20:00:00Z",
-    "escrow": {
-      "sealId": "escrow-uuid-789",
-      "amount": 750000.00,
-      "status": "SEALED"
+  "transactionId": "uuid",
+  "fromUserId": "uuid",
+  "toUserId": "uuid",
+  "amount": 100000,
+  "fee": 0,
+  "type": "P2P_TRANSFER",
+  "status": "SUCCESS",
+  "note": "Pembayaran invoice #123",
+  "createdAt": "2026-08-11T10:00:00Z"
+}
+```
+
+---
+
+### 3.7 GET `/transactions`
+Get transaction history.
+
+**Headers:** `Authorization: Bearer {accessToken}`
+
+**Query Params:**
+- `page` (int, default: 0)
+- `size` (int, default: 20)
+- `type` (enum: TOPUP, WITHDRAW, P2P_TRANSFER, ESCROW_HOLD, ESCROW_RELEASE, ESCROW_REFUND, FEE)
+- `status` (enum: PENDING, SUCCESS, FAILED)
+- `fromDate` (ISO 8601)
+- `toDate` (ISO 8601)
+
+**Response 200:**
+```json
+{
+  "content": [
+    {
+      "transactionId": "uuid",
+      "type": "P2P_TRANSFER",
+      "amount": 100000,
+      "fee": 0,
+      "status": "SUCCESS",
+      "description": "Transfer to budisantoso",
+      "counterpartyName": "Budi Santoso",
+      "counterpartyAvatar": "https://...",
+      "createdAt": "2026-08-11T10:00:00Z",
+      "direction": "OUT"
     }
-  }
+  ],
+  "page": 0,
+  "size": 20,
+  "totalElements": 150,
+  "totalPages": 8
 }
 ```
 
-### 3.2 List Covenants
-```http
-GET /covenant?role=INITIATOR&status=ALL&page=1&limit=20
-Authorization: SacredSeal <access_seal>
+---
 
-Response 200:
+### 3.8 GET `/transactions/{transactionId}`
+Get transaction detail.
+
+**Response 200:**
+```json
 {
-  "success": true,
-  "data": {
-    "covenants": [
-      {
-        "covenantId": "covenant-uuid-456",
-        "covenantCode": "CVN-8X2K9",
-        "role": "INITIATOR",
-        "itemName": "Akun Mobile Legends S25",
-        "amount": 750000.00,
-        "status": "ACCEPTED",
-        "otherParty": {
-          "id": "660e8400-e29b-41d4-a716-446655440001",
-          "fullName": "Keeper of Ruins",
-          "phone": "+6289876543210",
-          "covenantScore": 4.5
-        },
-        "deadlineAt": "2026-08-09T20:00:00Z",
-        "updatedAt": "2026-08-06T20:05:00Z"
-      }
-    ],
-    "pagination": { "page": 1, "limit": 20, "total": 5 }
-  }
+  "transactionId": "uuid",
+  "type": "ESCROW_HOLD",
+  "amount": 500000,
+  "fee": 5000,
+  "status": "SUCCESS",
+  "description": "Escrow hold for room #ROOM-123",
+  "roomId": "uuid",
+  "metadata": {},
+  "createdAt": "2026-08-11T10:00:00Z",
+  "settledAt": "2026-08-11T10:01:00Z"
 }
 ```
 
-### 3.3 Gaze Upon Covenant (Get Detail)
-```http
-GET /covenant/:covenantId
-Authorization: SacredSeal <access_seal>
+---
 
-Response 200:
+### 3.9 GET `/bank-accounts`
+Get saved bank accounts.
+
+**Headers:** `Authorization: Bearer {accessToken}`
+
+**Response 200:**
+```json
 {
-  "success": true,
-  "data": {
-    "covenantId": "covenant-uuid-456",
-    "covenantCode": "CVN-8X2K9",
-    "initiator": {
-      "id": "550e8400-e29b-41d4-a716-446655440000",
-      "fullName": "Wanderer of the Void",
-      "phone": "+6281234567890",
-      "covenantScore": 4.8
-    },
-    "counterpart": {
-      "id": "660e8400-e29b-41d4-a716-446655440001",
-      "fullName": "Keeper of Ruins",
-      "phone": "+6289876543210",
-      "covenantScore": 4.5
-    },
-    "itemName": "Akun Mobile Legends S25",
-    "itemDescription": "Akun tier Mythic, hero lengkap, skin 150+",
-    "category": "GAME",
-    "amount": 750000.00,
-    "status": "DELIVERED",
-    "timeline": [
-      {
-        "status": "FORGED",
-        "timestamp": "2026-08-06T20:00:00Z",
-        "actor": "Wanderer of the Void",
-        "note": "Covenant forged, escrow seal initiated"
-      },
-      {
-        "status": "ACCEPTED",
-        "timestamp": "2026-08-06T20:05:00Z",
-        "actor": "Keeper of Ruins",
-        "note": "Counterpart accepted the covenant"
-      },
-      {
-        "status": "DELIVERED",
-        "timestamp": "2026-08-06T20:30:00Z",
-        "actor": "Keeper of Ruins",
-        "note": "Counterpart delivered the item",
-        "proofUrl": "https://cdn.eyesofpriestess.id/proofs/proof-123.jpg"
-      }
-    ],
-    "deadlineAt": "2026-08-09T20:00:00Z",
-    "canFulfill": true,
-    "canBreak": true,
-    "canSever": false,
-    "escrow": {
-      "sealId": "escrow-uuid-789",
-      "amount": 750000.00,
-      "status": "SEALED"
-    },
-    "createdAt": "2026-08-06T20:00:00Z",
-    "updatedAt": "2026-08-06T20:30:00Z"
-  }
-}
-```
-
-### 3.4 Accept Covenant (Counterpart)
-```http
-POST /covenant/:covenantId/accept
-Authorization: SacredSeal <access_seal>
-Content-Type: application/json
-
-Request:
-{
-  "pin": "123456"
-}
-
-Response 200:
-{
-  "success": true,
-  "data": {
-    "covenantId": "covenant-uuid-456",
-    "status": "ACCEPTED",
-    "message": "The covenant is sealed. Fulfill your oath before the deadline."
-  }
-}
-```
-
-### 3.5 Reject Covenant (Counterpart)
-```http
-POST /covenant/:covenantId/reject
-Authorization: SacredSeal <access_seal>
-
-Response 200:
-{
-  "success": true,
-  "data": {
-    "covenantId": "covenant-uuid-456",
-    "status": "BROKEN",
-    "message": "The covenant has been rejected. The sealed treasury returns to the initiator.",
-    "refund": {
-      "amount": 750000.00,
-      "refundedAt": "2026-08-06T20:05:00Z"
+  "accounts": [
+    {
+      "id": "uuid",
+      "bankCode": "BCA",
+      "bankName": "Bank Central Asia",
+      "accountNumber": "1234567890",
+      "accountHolderName": "BUDI SANTOSO",
+      "isPrimary": true
     }
-  }
+  ]
 }
 ```
 
-### 3.6 Fulfill Oath (Counterpart Deliver)
-```http
-POST /covenant/:covenantId/fulfill
-Authorization: SacredSeal <access_seal>
-Content-Type: multipart/form-data
+---
 
-Request:
+### 3.10 POST `/bank-accounts`
+Add bank account.
+
+**Request:**
+```json
 {
-  "proof": <file>,
-  "deliveryNotes": "Username: keeper_ruins, Password: sent via communion",
+  "bankCode": "BCA",
+  "accountNumber": "1234567890",
+  "accountHolderName": "BUDI SANTOSO",
   "pin": "123456"
 }
+```
 
-Response 200:
+**Response 201:** Created bank account object
+
+---
+
+## 4. Room Escrow Service (`/api/v1/room`)
+
+### 4.1 POST `/`
+Create escrow room.
+
+**Headers:** `Authorization: Bearer {accessToken}`
+
+**Request:**
+```json
 {
-  "success": true,
-  "data": {
-    "covenantId": "covenant-uuid-456",
-    "status": "DELIVERED",
-    "proofUrl": "https://cdn.eyesofpriestess.id/proofs/proof-123.jpg",
-    "deliveryNotes": "Username: keeper_ruins, Password: sent via communion",
-    "deliveredAt": "2026-08-06T20:30:00Z",
-    "message": "Oath fulfilled. Awaiting the initiator's confirmation."
-  }
+  "title": "Jual Beli Akun Game FF",
+  "description": "Akun sultan, level 50, skin lengkap",
+  "itemCategory": "GAME_ACCOUNT",
+  "itemPrice": 250000,
+  "sellerId": "uuid",
+  "autoReleaseHours": 24
 }
 ```
 
-### 3.7 Confirm Fulfillment (Initiator)
-```http
-POST /covenant/:covenantId/confirm
-Authorization: SacredSeal <access_seal>
-Content-Type: application/json
+**Response 201:**
+```json
+{
+  "roomId": "uuid",
+  "roomCode": "EOP-ABC123",
+  "title": "Jual Beli Akun Game FF",
+  "description": "Akun sultan, level 50, skin lengkap",
+  "itemCategory": "GAME_ACCOUNT",
+  "itemPrice": 250000,
+  "fee": 2500,
+  "totalAmount": 252500,
+  "status": "WAITING_PAYMENT",
+  "buyerId": "uuid",
+  "sellerId": "uuid",
+  "autoReleaseAt": "2026-08-12T10:00:00Z",
+  "createdAt": "2026-08-11T10:00:00Z"
+}
+```
 
-Request:
+**Status lifecycle:** `WAITING_PAYMENT` → `FUNDED` → `DELIVERED` → `COMPLETED` / `DISPUTED` / `CANCELLED`
+
+---
+
+### 4.2 POST `/{roomId}/fund`
+Buyer mendanai room (lock dana ke escrow).
+
+**Headers:** `Authorization: Bearer {accessToken}`
+
+**Request:**
+```json
+{
+  "pin": "123456"
+}
+```
+
+**Response 200:**
+```json
+{
+  "roomId": "uuid",
+  "status": "FUNDED",
+  "fundedAt": "2026-08-11T10:05:00Z",
+  "escrowTransactionId": "uuid"
+}
+```
+
+---
+
+### 4.3 POST `/{roomId}/deliver`
+Seller konfirmasi pengiriman barang/jasa.
+
+**Headers:** `Authorization: Bearer {accessToken}`
+
+**Request:**
+```json
+{
+  "deliveryNotes": "Data akun sudah dikirim via chat",
+  "proofImages": ["url1", "url2"]
+}
+```
+
+**Response 200:**
+```json
+{
+  "roomId": "uuid",
+  "status": "DELIVERED",
+  "deliveredAt": "2026-08-11T10:10:00Z",
+  "deliveryNotes": "Data akun sudah dikirim via chat"
+}
+```
+
+---
+
+### 4.4 POST `/{roomId}/confirm`
+Buyer konfirmasi penerimaan.
+
+**Headers:** `Authorization: Bearer {accessToken}`
+
+**Request:**
+```json
 {
   "pin": "123456",
   "rating": 5,
-  "review": "Akun sesuai deskripsi, counterpart responsif"
-}
-
-Response 200:
-{
-  "success": true,
-  "data": {
-    "covenantId": "covenant-uuid-456",
-    "status": "FULFILLED",
-    "message": "The covenant is complete. The sealed treasury flows to the counterpart.",
-    "release": {
-      "amount": 750000.00,
-      "tithe": 7500.00,
-      "netAmount": 742500.00,
-      "releasedAt": "2026-08-06T20:35:00Z"
-    }
-  }
+  "review": "Seller amanah, proses cepat"
 }
 ```
 
-### 3.8 Sever Covenant (Initiator, before accepted only)
-```http
-POST /covenant/:covenantId/sever
-Authorization: SacredSeal <access_seal>
-
-Response 200:
+**Response 200:**
+```json
 {
-  "success": true,
-  "data": {
-    "covenantId": "covenant-uuid-456",
-    "status": "BROKEN",
-    "message": "The covenant has been severed. The sealed treasury returns to you.",
-    "refund": {
-      "amount": 750000.00,
-      "refundedAt": "2026-08-06T20:01:00Z"
-    }
-  }
-}
-```
-
-### 3.9 Invoke Judgment (Raise Dispute)
-```http
-POST /covenant/:covenantId/judgment
-Authorization: SacredSeal <access_seal>
-Content-Type: application/json
-
-Request:
-{
-  "reason": "ITEM_NOT_AS_DESCRIBED",
-  "description": "Akun tier hanya Epic, bukan Mythic. Skin cuma 20, bukan 150.",
-  "evidenceUrls": [
-    "https://cdn.eyesofpriestess.id/evidence/evidence-1.jpg"
-  ],
-  "pin": "123456"
-}
-
-Response 201:
-{
-  "success": true,
-  "data": {
-    "covenantId": "covenant-uuid-456",
-    "status": "JUDGMENT",
-    "judgmentId": "judgment-uuid-999",
-    "message": "Judgment invoked. The sealed treasury is frozen pending oracle resolution.",
-    "judgment": {
-      "id": "judgment-uuid-999",
-      "reason": "ITEM_NOT_AS_DESCRIBED",
-      "status": "OPEN",
-      "createdAt": "2026-08-06T20:40:00Z"
-    }
-  }
+  "roomId": "uuid",
+  "status": "COMPLETED",
+  "completedAt": "2026-08-11T10:15:00Z",
+  "releasedAmount": 250000,
+  "sellerReceived": 247500
 }
 ```
 
 ---
 
-## 4. Communion Sanctum (`/api/v1/communion`)
+### 4.5 POST `/{roomId}/dispute`
+Buyer atau seller buka dispute.
 
-### 4.1 Read Communion Messages
-```http
-GET /communion/covenant/:covenantId/messages?cursor=&limit=50
-Authorization: SacredSeal <access_seal>
+**Headers:** `Authorization: Bearer {accessToken}`
 
-Response 200:
+**Request:**
+```json
 {
-  "success": true,
-  "data": {
-    "messages": [
-      {
-        "id": "msg-uuid-111",
-        "senderId": "660e8400-e29b-41d4-a716-446655440001",
-        "senderName": "Keeper of Ruins",
-        "message": "Halo, akun sudah saya siapkan. Mau dikirim sekarang?",
-        "messageType": "TEXT",
-        "createdAt": "2026-08-06T20:10:00Z",
-        "isRead": true
-      }
-    ],
-    "nextCursor": "base64cursor123",
-    "hasMore": false
-  }
+  "reason": "Barang tidak sesuai deskripsi",
+  "description": "Akun yang diberikan levelnya hanya 30, bukan 50",
+  "evidenceImages": ["url1", "url2"]
 }
 ```
 
-### 4.2 Send Message (REST fallback)
-```http
-POST /communion/covenant/:covenantId/messages
-Authorization: SacredSeal <access_seal>
-Content-Type: application/json
-
-Request:
+**Response 201:**
+```json
 {
-  "message": "Terima kasih, akun sudah saya cek dan sesuai!",
-  "messageType": "TEXT"
+  "roomId": "uuid",
+  "status": "DISPUTED",
+  "disputeId": "uuid",
+  "disputedAt": "2026-08-11T10:20:00Z"
 }
-
-Response 201: { ...message object }
 ```
 
-### 4.3 WebSocket Communion
-```
-Endpoint: ws://localhost:8084/ws/communion?seal=<jwt_access_seal>&covenantId=<covenantId>
+---
 
-// Client → Sanctum
+### 4.6 POST `/{roomId}/cancel`
+Cancel room (hanya jika status WAITING_PAYMENT).
+
+**Headers:** `Authorization: Bearer {accessToken}`
+
+**Response 200:**
+```json
+{
+  "roomId": "uuid",
+  "status": "CANCELLED",
+  "cancelledAt": "2026-08-11T10:00:00Z"
+}
+```
+
+---
+
+### 4.7 GET `/`
+List rooms untuk user.
+
+**Headers:** `Authorization: Bearer {accessToken}`
+
+**Query Params:**
+- `role` (BUYER, SELLER, ALL)
+- `status` (WAITING_PAYMENT, FUNDED, DELIVERED, COMPLETED, DISPUTED, CANCELLED)
+- `page`, `size`
+
+**Response 200:** Paginated list of RoomSummary
+
+---
+
+### 4.8 GET `/{roomId}`
+Get room detail.
+
+**Response 200:**
+```json
+{
+  "roomId": "uuid",
+  "roomCode": "EOP-ABC123",
+  "title": "Jual Beli Akun Game FF",
+  "description": "Akun sultan, level 50, skin lengkap",
+  "itemCategory": "GAME_ACCOUNT",
+  "itemPrice": 250000,
+  "fee": 2500,
+  "totalAmount": 252500,
+  "status": "FUNDED",
+  "buyer": { "id": "uuid", "name": "Andi Wijaya", "avatar": "url" },
+  "seller": { "id": "uuid", "name": "Budi Santoso", "avatar": "url" },
+  "autoReleaseAt": "2026-08-12T10:00:00Z",
+  "timeline": [
+    { "status": "CREATED", "timestamp": "2026-08-11T10:00:00Z", "actor": "Budi Santoso" },
+    { "status": "FUNDED", "timestamp": "2026-08-11T10:05:00Z", "actor": "Andi Wijaya" }
+  ],
+  "chatRoomId": "uuid",
+  "createdAt": "2026-08-11T10:00:00Z"
+}
+```
+
+---
+
+### 4.9 POST `/{roomId}/extend-auto-release`
+Extend auto-release timer (buyer only, max 72 jam).
+
+**Request:**
+```json
+{
+  "additionalHours": 24
+}
+```
+
+**Response 200:** Updated room dengan `autoReleaseAt` baru
+
+---
+
+## 5. Chat Service (`/api/v1/chat`)
+
+### 5.1 WebSocket Connection
+```
+ws://localhost:8080/ws/chat?token={jwt}
+```
+
+**Connection lifecycle:**
+1. Client connect dengan JWT di query param
+2. Server validate JWT + cek blacklist
+3. Server subscribe client ke channel `user:{userId}`
+4. Saat masuk room, client send: `{ "type": "JOIN_ROOM", "roomId": "uuid" }`
+5. Server subscribe ke `room:{roomId}`
+
+**Message format (client → server):**
+```json
 {
   "type": "SEND_MESSAGE",
-  "payload": {
-    "message": "Halo, barang sudah dikirim",
-    "messageType": "TEXT"
-  }
+  "roomId": "uuid",
+  "content": "Halo, sudah saya transfer ya",
+  "messageType": "TEXT"
 }
+```
 
-// Sanctum → Client (broadcast)
+**Message format (server → client):**
+```json
 {
   "type": "NEW_MESSAGE",
-  "payload": {
-    "id": "msg-uuid-113",
-    "senderId": "660e8400-e29b-41d4-a716-446655440001",
-    "senderName": "Keeper of Ruins",
-    "message": "Halo, barang sudah dikirim",
-    "messageType": "TEXT",
-    "createdAt": "2026-08-06T20:30:00Z"
-  }
+  "messageId": "uuid",
+  "roomId": "uuid",
+  "senderId": "uuid",
+  "senderName": "Budi Santoso",
+  "senderAvatar": "url",
+  "content": "Halo, sudah saya transfer ya",
+  "messageType": "TEXT",
+  "sentAt": "2026-08-11T10:00:00Z"
 }
+```
 
-// Sanctum → Client (system notification)
+**Message types:** `TEXT`, `IMAGE`, `FILE`, `SYSTEM` (auto-generated status updates)
+
+---
+
+### 5.2 GET `/rooms`
+Get chat rooms untuk user.
+
+**Headers:** `Authorization: Bearer {accessToken}`
+
+**Response 200:**
+```json
 {
-  "type": "SYSTEM_NOTIFICATION",
-  "payload": {
-    "covenantId": "covenant-uuid-456",
-    "status": "DELIVERED",
-    "message": "The counterpart has fulfilled their oath",
-    "timestamp": "2026-08-06T20:30:00Z"
-  }
+  "rooms": [
+    {
+      "chatRoomId": "uuid",
+      "roomName": "Jual Beli Akun Game FF",
+      "roomCode": "EOP-ABC123",
+      "lastMessage": "Data akun sudah dikirim",
+      "lastMessageAt": "2026-08-11T10:10:00Z",
+      "unreadCount": 3,
+      "participantCount": 2,
+      "escrowStatus": "FUNDED"
+    }
+  ]
 }
 ```
 
 ---
 
-## 5. Judgment Sanctum (`/api/v1/judgment`)
+### 5.3 GET `/rooms/{chatRoomId}/messages`
+Get message history.
 
-### 5.1 List My Judgments
-```http
-GET /judgment?status=ALL&page=1&limit=20
-Authorization: SacredSeal <access_seal>
+**Query Params:** `page`, `size` (default 50)
 
-Response 200:
+**Response 200:** Paginated messages (newest first)
+
+---
+
+### 5.4 POST `/rooms/{chatRoomId}/read`
+Mark messages as read.
+
+**Response 204:** No content
+
+---
+
+## 6. Dispute Service (`/api/v1/dispute`)
+
+### 6.1 GET `/`
+List disputes (user melihat dispute-nya sendiri, admin melihat semua).
+
+**Headers:** `Authorization: Bearer {accessToken}`
+
+**Query Params:**
+- `status` (OPEN, UNDER_REVIEW, RESOLVED, CLOSED)
+- `role` (BUYER, SELLER, ADMIN)
+- `page`, `size`
+
+**Response 200:** Paginated disputes
+
+---
+
+### 6.2 GET `/{disputeId}`
+Get dispute detail.
+
+**Response 200:**
+```json
 {
-  "success": true,
-  "data": {
-    "judgments": [
-      {
-        "judgmentId": "judgment-uuid-999",
-        "covenantId": "covenant-uuid-456",
-        "covenantCode": "CVN-8X2K9",
-        "itemName": "Akun Mobile Legends S25",
-        "amount": 750000.00,
-        "reason": "ITEM_NOT_AS_DESCRIBED",
-        "status": "OPEN",
-        "raisedByMe": true,
-        "otherParty": {
-          "id": "660e8400-e29b-41d4-a716-446655440001",
-          "fullName": "Keeper of Ruins"
-        },
-        "createdAt": "2026-08-06T20:40:00Z"
-      }
-    ],
-    "pagination": { "page": 1, "limit": 20, "total": 1 }
-  }
-}
-```
-
-### 5.2 Gaze Upon Judgment
-```http
-GET /judgment/:judgmentId
-Authorization: SacredSeal <access_seal>
-
-Response 200:
-{
-  "success": true,
-  "data": {
-    "judgmentId": "judgment-uuid-999",
-    "covenantId": "covenant-uuid-456",
-    "covenantCode": "CVN-8X2K9",
-    "itemName": "Akun Mobile Legends S25",
-    "amount": 750000.00,
-    "reason": "ITEM_NOT_AS_DESCRIBED",
-    "description": "Akun tier hanya Epic, bukan Mythic. Skin cuma 20, bukan 150.",
-    "evidenceUrls": [
-      "https://cdn.eyesofpriestess.id/evidence/evidence-1.jpg"
-    ],
-    "status": "OPEN",
-    "raisedBy": {
-      "id": "550e8400-e29b-41d4-a716-446655440000",
-      "fullName": "Wanderer of the Void"
-    },
-    "respondent": {
-      "id": "660e8400-e29b-41d4-a716-446655440001",
-      "fullName": "Keeper of Ruins"
-    },
-    "resolution": null,
-    "oracleNotes": null,
-    "createdAt": "2026-08-06T20:40:00Z",
-    "updatedAt": "2026-08-06T20:40:00Z"
-  }
-}
-```
-
-### 5.3 Oracle: List All Judgments
-```http
-GET /judgment/oracle/all?status=OPEN&page=1&limit=20
-Authorization: SacredSeal <oracle_access_seal>
-
-Response 200: { ...array of judgments with full details }
-```
-
-### 5.4 Oracle: Render Judgment
-```http
-POST /judgment/:judgmentId/render
-Authorization: SacredSeal <oracle_access_seal>
-Content-Type: application/json
-
-Request:
-{
-  "resolution": "REFUND_TO_INITIATOR",
-  "splitAmount": null,
-  "oracleNotes": "Bukti screenshot menunjukkan akun tier Epic, bukan Mythic. The initiator's claim is just.",
-  "evidenceUrls": []
-}
-
-Response 200:
-{
-  "success": true,
-  "data": {
-    "judgmentId": "judgment-uuid-999",
-    "status": "RESOLVED",
-    "resolution": "REFUND_TO_INITIATOR",
-    "amount": 750000.00,
-    "resolvedAt": "2026-08-07T10:00:00Z",
-    "message": "Judgment rendered. The sealed treasury returns to the initiator."
-  }
+  "disputeId": "uuid",
+  "roomId": "uuid",
+  "roomCode": "EOP-ABC123",
+  "title": "Barang tidak sesuai deskripsi",
+  "description": "Akun yang diberikan levelnya hanya 30, bukan 50",
+  "status": "UNDER_REVIEW",
+  "initiatedBy": "BUYER",
+  "buyer": { "id": "uuid", "name": "Andi Wijaya" },
+  "seller": { "id": "uuid", "name": "Budi Santoso" },
+  "evidence": [
+    { "id": "uuid", "type": "IMAGE", "url": "url", "uploadedBy": "uuid", "uploadedAt": "..." }
+  ],
+  "decision": null,
+  "createdAt": "2026-08-11T10:20:00Z",
+  "updatedAt": "2026-08-11T10:25:00Z"
 }
 ```
 
 ---
 
-## 6. Error Response Standard — The Omen
+### 6.3 POST `/{disputeId}/evidence`
+Upload evidence.
 
-All errors follow this structure:
+**Headers:** `Authorization: Bearer {accessToken}`  
+**Content-Type:** `multipart/form-data`
+
+**Form fields:**
+- `file` (image/pdf, max 5MB)
+- `description` (string)
+
+**Response 201:** Evidence object
+
+---
+
+### 6.4 POST `/{disputeId}/resolve` (ADMIN only)
+Resolve dispute.
+
+**Headers:** `Authorization: Bearer {adminToken}`
+
+**Request:**
+```json
+{
+  "decision": "REFUND_BUYER",
+  "reason": "Bukti menunjukkan barang tidak sesuai deskripsi",
+  "refundAmount": 250000
+}
+```
+
+**Decision options:** `RELEASE_TO_SELLER`, `REFUND_BUYER`, `PARTIAL_REFUND`, `CANCEL`
+
+**Response 200:**
+```json
+{
+  "disputeId": "uuid",
+  "status": "RESOLVED",
+  "decision": "REFUND_BUYER",
+  "resolvedAt": "2026-08-11T11:00:00Z",
+  "refundTransactionId": "uuid"
+}
+```
+
+---
+
+### 6.5 POST `/{disputeId}/comment`
+Add comment ke dispute.
+
+**Request:**
+```json
+{
+  "content": "Saya sudah upload bukti screenshot akun asli"
+}
+```
+
+**Response 201:** Comment object
+
+---
+
+## 7. Error Response Standard
 
 ```json
 {
-  "success": false,
-  "error": {
-    "code": "ERROR_CODE",
-    "message": "Human readable message",
-    "details": {},
-    "timestamp": "2026-08-06T20:00:00Z",
-    "path": "/api/v1/covenant/covenant-uuid-456/confirm",
-    "requestId": "req-uuid-789"
-  }
+  "timestamp": "2026-08-11T10:00:00Z",
+  "status": 400,
+  "error": "BAD_REQUEST",
+  "message": "Validation failed",
+  "path": "/api/v1/wallet/transfer",
+  "details": [
+    {
+      "field": "amount",
+      "message": "Amount must be at least 10000"
+    }
+  ],
+  "traceId": "abc-def-123"
 }
 ```
 
-### Common Omen Codes
+### Error Codes
 
 | Code | HTTP | Meaning |
-|------|------|---------|
-| `UNAUTHORIZED` | 401 | Invalid or expired seal |
-| `SEAL_REVOKED` | 401 | Seal sanctioned by the Priestess |
-| `FORBIDDEN` | 403 | Insufficient attunement |
-| `NOT_FOUND` | 404 | Covenant not found in the archives |
-| `VALIDATION_ERROR` | 400 | Invalid resonance |
-| `INSUFFICIENT_TREASURY` | 400 | Not enough treasury to forge covenant |
-| `INVALID_PIN` | 400 | Wrong sanctification seal |
-| `PIN_LOCKED` | 403 | Too many failed PIN attempts |
-| `COVENANT_INVALID_STATE` | 400 | Action not permitted in current covenant state |
-| `RATE_LIMITED` | 429 | Too many invocations |
-| `COVENANT_KEY_VIOLATION` | 409 | Duplicate invocation |
-| `INTERNAL_ERROR` | 500 | Sanctum error |
+|---|---|---|
+| `BAD_REQUEST` | 400 | Invalid request body or parameters |
+| `UNAUTHORIZED` | 401 | Missing or invalid JWT |
+| `FORBIDDEN` | 403 | Insufficient permissions atau account banned |
+| `NOT_FOUND` | 404 | Resource tidak ditemukan |
+| `CONFLICT` | 409 | Resource sudah ada atau state tidak valid |
+| `UNPROCESSABLE` | 422 | Business logic violation |
+| `TOO_MANY_REQUESTS` | 429 | Rate limit exceeded |
+| `INTERNAL_ERROR` | 500 | Server error |
+| `SERVICE_UNAVAILABLE` | 503 | Downstream service error |
 
 ---
 
-## 7. The Veil Routing Table
+## 8. Rate Limiting
 
-| Path | Sanctum | Port |
-|------|---------|------|
-| `/api/v1/seal/**` | seal-service | 8081 |
-| `/api/v1/vault/**` | vault-service | 8082 |
-| `/api/v1/covenant/**` | covenant-service | 8083 |
-| `/api/v1/communion/**` | communion-service | 8084 |
-| `/api/v1/judgment/**` | judgment-service | 8085 |
-| `/ws/communion` | communion-service | 8084 |
-| `/vault/webhook/**` | vault-service | 8082 |
+| Endpoint | Limit |
+|---|---|
+| `/auth/login` | 5 requests / minute / IP |
+| `/auth/register` | 3 requests / hour / IP |
+| `/auth/verify-pin` | 3 attempts / 15 min / user |
+| `/wallet/transfer` | 10 requests / minute / user |
+| `/room/` (create) | 20 requests / hour / user |
+| `/ws/**` | 1 connection / user |
 
 ---
 
-*Next: Read `03-database-schema.md` for the Archive's complete design.*
+*End of Backend API Specification*

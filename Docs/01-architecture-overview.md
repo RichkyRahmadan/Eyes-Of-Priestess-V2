@@ -1,352 +1,290 @@
 # EyesOfPriestess — Architecture Overview
-## The Sacred Covenant: Escrow E-Wallet for P2P Marketplace
 
-**Version:** 1.0  
-**Date:** August 2026  
-**Platform:** Website (SvelteKit + Quarkus Microservices)  
-**Database:** PostgreSQL  
-**Auth:** JWT with Sanction Seal (Insta-Ban Token Revocation)  
-**Payment Gateway:** Midtrans / Xendit Sandbox  
-**Codename:** The Covenant Protocol
+> **Version:** 1.0  
+> **Date:** 2026-08-11  
+> **Project:** EyesOfPriestess — Escrow E-Wallet for P2P Marketplace  
+> **Design System:** Warm Editorial (Cream Canvas + Coral Accent + Slab-Serif)
 
 ---
 
-## 1. Executive Summary
+## 1. Design Philosophy
 
-> *"In the eyes of the Priestess, no transaction shall breach the sacred trust."*
+EyesOfPriestess mengadopsi **warm editorial design language** yang berbeda dari e-wallet konvensional. Alih-alih cool blue / slate yang umum digunakan fintech, sistem ini menggunakan:
 
-**EyesOfPriestess** is a divine escrow e-wallet forged in the aesthetic of ancient civilizations and crystalline mysteries. Built for P2P marketplace transactions — Facebook Marketplace, game trading communities, and digital exchanges — it eliminates the need for *rekber* (rekening bersama) or midman through an automated **Covenant Room** system.
+- **Cream Canvas** (`#faf9f5`) sebagai lantai dasar setiap halaman — hangat, humanist, berbeda dari pure white yang generic.
+- **Coral Primary** (`#cc785c`) untuk CTA dan accent — warm, deliberately muted, tidak cyan/blue.
+- **Slab-Serif Display** (Copernicus / Tiempos Headline / Cormorant Garamond) untuk headline — memberikan kesan literary, trustworthy, seperti membaca editorial majalah keuangan.
+- **Humanist Sans** (StyreneB / Inter) untuk body text dan UI labels — readable, warm, tidak geometric dingin.
+- **Dark Navy Surfaces** (`#181715`) untuk product chrome — dashboard cards, transaction tables, code blocks, terminal output.
 
-**Core Differentiator:** The **Covenant Room** — a sacred chamber where buyer funds are sealed in escrow by the Priestess's gaze, released only when both parties fulfill their oath. No third human required; the system itself is the impartial arbiter.
-
-**Thematic Essence:** Deep void purples, ancient gold accents, crystalline whites, and the solemn elegance of the Priestess's eternal watch.
+Pacing halaman mengikuti ritme **cream → cream-card → dark-mockup → cream → coral-callout → dark-footer**.
 
 ---
 
-## 2. Tech Stack Final
+## 2. Tech Stack
 
-### Backend — Microservices (Quarkus)
 | Layer | Technology | Version | Notes |
-|-------|------------|---------|-------|
-| Framework | Quarkus | 3.x | Native compilation, low memory footprint |
-| Programming | Java 21 | LTS | Virtual threads support |
-| API Style | RESTEasy Reactive | — | Non-blocking, high throughput |
-| Data Access | Hibernate Reactive Panache | — | Reactive ORM with Panache simplification |
-| Database | PostgreSQL | 15+ | ACID, JSONB for metadata, full-text search ready |
-| Cache | Redis | 7+ | Sanction Seal blacklist, session cache, rate limiting |
-| Messaging | RabbitMQ | — | Async events between sanctums |
-| Auth | SmallRye JWT + bcrypt | — | Sacred Seal access + refresh, PIN hash |
-| Payment | Midtrans / Xendit | Sandbox | Offerings channel (VA, e-wallet top-up) |
-| Build Tool | Maven | 3.9+ | — |
-| Container | Docker | — | Each sanctum containerized |
-
-### Frontend — The Sanctum (SvelteKit)
-| Layer | Technology | Notes |
-|-------|------------|-------|
-| Framework | SvelteKit | SSR/SPA hybrid, file-based routing |
-| Language | TypeScript | Type safety |
-| Styling | TailwindCSS + shadcn-svelte | Utility-first, accessible components |
-| State | Svelte Stores | Auth, vault, covenant states |
-| HTTP Client | Fetch API + custom wrapper | Native fetch with interceptors |
-| Real-time | WebSocket client | Per-covenant communion |
-| Icons | Lucide Svelte | Clean, modern |
-| Build | Vite | Fast HMR |
-
-### Infrastructure
-| Component | Technology |
-|-----------|------------|
-| API Gateway | Nginx / Kong / custom Quarkus gateway |
-| Service Discovery | Docker Compose (dev) / Consul (prod ready) |
-| Message Queue | RabbitMQ (async: notifications, auto-release cron) |
-| Monitoring | Micrometer + Prometheus (Quarkus extension) |
-| Logging | ELK Stack ready (Logstash pattern) |
+|---|---|---|---|
+| **Backend** | Quarkus | 3.x | Java 21, RESTEasy Reactive, Hibernate Reactive Panache |
+| **Frontend** | SvelteKit | 2.x | TypeScript, SSR/SPA hybrid |
+| **Styling** | TailwindCSS | 3.x | Custom design tokens mapped to Claude system |
+| **UI Components** | shadcn-svelte | latest | Adapted to warm editorial palette |
+| **Database** | PostgreSQL | 15+ | 5 schemas terpisah per service domain |
+| **Message Broker** | RabbitMQ | 3.x | Async events antar microservice |
+| **Cache & Session** | Redis | 7.x | Token blacklist (insta-ban), rate limiting |
+| **Real-time** | WebSocket (native) | — | In-room chat + push notifications |
+| **Payment Gateway** | Midtrans / Xendit | Sandbox | Real integration untuk top-up & withdraw |
+| **Container** | Docker + Docker Compose | — | Dev environment |
 
 ---
 
-## 3. Microservices Architecture — The Sanctum Network
+## 3. Microservices Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                     PILGRIM (Browser)                            │
-│              The Sanctum Interface (SSR + SPA)                  │
-└──────────────────────────┬──────────────────────────────────────┘
-                           │ HTTPS
-┌──────────────────────────▼──────────────────────────────────────┐
-│                 THE VEIL (API Gateway)                           │
-│     • SSL Termination    • Rate Limiting    • Route Proxy       │
-└──┬────────────┬────────────┬────────────┬────────────┬──────────┘
-   │            │            │            │            │
-   ▼            ▼            ▼            ▼            ▼
-┌──────┐   ┌──────┐   ┌──────┐   ┌──────┐   ┌──────────┐
-│ Seal │   │ Vault│   │Covt. │   │Comm. │   │ Judgment │
-│Svc   │   │Svc   │   │Svc   │   │Svc   │   │Svc       │
-│:8081 │   │:8082 │   │:8083 │   │:8084 │   │:8085     │
-└──┬───┘   └──┬───┘   └──┬───┘   └──┬───┘   └────┬─────┘
-   │          │          │          │             │
-   └──────────┴──────────┴──────────┴─────────────┘
-                          │
-              ┌───────────▼────────────┐
-              │    The Archive (RDS)   │
-              │  • Pilgrim DB (shared) │
-              │  • Sanctum schemas      │
-              │  • JSONB metadata       │
-              └───────────┬────────────┘
-                          │
-              ┌───────────▼────────────┐
-              │    The Crystal (Redis) │
-              │  • Sanction Seals      │
-              │  • Rate Limiting       │
-              │  • Session Cache       │
-              └────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           EYESOFPRIESTESS PLATFORM                          │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  ┌─────────────┐                                                            │
+│  │   Nginx /   │  ← API Gateway (reverse proxy, load balancer, rate limit) │
+│  │   Traefik   │                                                            │
+│  └──────┬──────┘                                                            │
+│         │                                                                   │
+│  ┌──────┴──────┬─────────────┬─────────────┬─────────────┬────────────────┐│
+│  │             │             │             │             │                ││
+│  ▼             ▼             ▼             ▼             ▼                ▼│
+│ ┌─────┐    ┌─────┐     ┌─────────┐   ┌─────────┐   ┌─────────┐   ┌────────┐│
+│ │Auth │    │Wallet│     │  Room   │   │  Chat   │   │ Dispute │   │Gateway ││
+│ │Svc  │    │Svc   │     │ Escrow  │   │  Svc    │   │  Svc    │   │ Svc    ││
+│ │:8081│    │:8082 │     │ :8083   │   │ :8084   │   │ :8085   │   │:8080   ││
+│ └─────┘    └─────┘     └─────────┘   └─────────┘   └─────────┘   └────────┘│
+│     │          │            │             │             │                  │
+│     └──────────┴────────────┴─────────────┴─────────────┘                  │
+│                              │                                             │
+│                    ┌─────────┴─────────┐                                   │
+│                    │   Message Bus     │                                   │
+│                    │   (RabbitMQ)      │                                   │
+│                    └───────────────────┘                                   │
+│                              │                                             │
+│         ┌────────────────────┼────────────────────┐                        │
+│         ▼                    ▼                    ▼                        │
+│    ┌─────────┐         ┌─────────┐         ┌─────────┐                     │
+│    │PostgreSQL│         │  Redis  │         │  MinIO  │                     │
+│    │  :5432  │         │  :6379  │         │  :9000  │  ← File storage     │
+│    └─────────┘         └─────────┘         └─────────┘                     │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Service Responsibilities — The Five Sanctums
+### Service Map
 
-| Sanctum | Port | Responsibility |
-|---------|------|----------------|
-| **seal-service** | 8081 | Pilgrim registration, Sacred Seal issuance, PIN sanctification, Sanction Seal (insta-ban), KYC attunement |
-| **vault-service** | 8082 | Balance stewardship, offerings (top-up), withdrawals, P2P tithing, transaction chronicles, tithe calculation |
-| **covenant-service** | 8083 | Covenant Room lifecycle (forge, accept, deliver, fulfill, break, auto-release), escrow seal/release, room state machine |
-| **communion-service** | 8084 | Real-time communion (WebSocket) per room, message preservation, read receipts |
-| **judgment-service** | 8085 | Dispute adjudication, evidence review, oracle panel, resolution (release/refund/split), notification |
-| **herald-service** | 8086 | (Optional Phase 2) Push notifications, missives, omens via RabbitMQ async |
-| **the-veil** | 8080 | Route proxy, auth middleware (Seal validation), rate limiting, CORS |
+| Service | Port | Responsibility | Database Schema |
+|---|---|---|---|
+| **API Gateway** | 8080 | Routing, rate limiting, auth middleware, request aggregation | — |
+| **Auth Service** | 8081 | Register, login, JWT issuance, PIN management, insta-ban blacklist | `auth` |
+| **Wallet Service** | 8082 | Balance, top-up, withdraw, P2P transfer, transaction history | `wallet` |
+| **Room Escrow Service** | 8083 | Room lifecycle, hold & release, delivery proof, auto-timeout | `room` |
+| **Chat Service** | 8084 | In-room messaging, WebSocket handler, message history | `chat` |
+| **Dispute Service** | 8085 | Dispute filing, evidence, admin arbitration, resolution | `dispute` |
 
 ---
 
 ## 4. Communication Patterns
 
 ### Synchronous (REST API)
-- The Veil → Sanctums (internal REST calls)
-- Pilgrim → The Veil → Sanctums
-- Used for: Seal, Vault queries, Covenant CRUD
+- Client → Gateway → Service (internal REST)
+- Gateway aggregates responses dari multiple services jika diperlukan
+- Timeout: 10s default, 30s untuk payment callback
 
-### Asynchronous (RabbitMQ — The Aether)
-- Sanctum → Sanctum (event-driven)
-- Used for:
-  - `covenant.fulfilled` → vault-service (release escrow)
-  - `covenant.broken` → judgment-service (create case)
-  - `pilgrim.sanctioned` → seal-service (revoke all seals)
-  - `offering.accepted` → vault-service (top-up balance)
-  - `covenant.expired` → covenant-service (auto-release cron)
-
-### Real-time (WebSocket — The Communion)
-- Pilgrim ↔ communion-service (persistent connection per room)
-- Used for: In-covenant messaging, typing indicators, status updates
-
----
-
-## 5. Security Architecture — The Sacred Seals
-
-### 5.1 Authentication Flow — The Rite of Passage
-```
-1. Pilgrim offers credentials (phone + password) → seal-service
-2. seal-service validates → issues Sacred Seal (access: 15min, refresh: 7days)
-3. Pilgrim stores Seal in httpOnly cookie (or secure localStorage for SPA)
-4. Every request: The Veil validates Seal signature + expiry
-5. PIN required for: seal escrow, release, withdraw, top-up > threshold
-```
-
-### 5.2 Sanction Seal — Insta-Ban Mechanism
-**Problem:** Sacred Seal is stateless — if a pilgrim is sanctioned, the seal remains valid until expiry.
-**Solution:** The Sanction Seal
-- Crystal blacklist: `sanction:<jti>` → TTL = remaining Seal expiry
-- The Veil middleware: Check Crystal blacklist before processing any request
-- On sanction: seal-service publishes `pilgrim.sanctioned` event → all sanctums invalidate cache
-- Refresh seal also revoked and removed from Crystal whitelist
-
-```java
-// The Veil Seal validation pseudo
-public void validateSeal(String seal) {
-    DecodedJWT jwt = JWT.decode(seal);
-    String jti = jwt.getId();
-    if (crystal.exists("sanction:" + jti)) {
-        throw new UnauthorizedException("Seal revoked by the Priestess");
-    }
-    // Continue validation...
-}
-```
-
-### 5.3 PIN Sanctification
-- PIN 6 digit, hashed with bcrypt (cost 12)
-- PIN never equals password
-- PIN required for all critical transactions (seal, release, withdraw)
-- Rate limit: 5x wrong PIN = lock 30 minutes
-
-### 5.4 Rate Limiting (Crystal)
-| Endpoint | Limit |
-|----------|-------|
-| Rite of Passage (Login) | 5/minute per IP |
-| Forge Covenant | 10/hour per pilgrim |
-| Offerings (Top-up) | 5/day per pilgrim |
-| API general | 100/minute per pilgrim |
+### Asynchronous (RabbitMQ)
+| Event | Publisher | Consumer | Purpose |
+|---|---|---|---|
+| `user.registered` | Auth | Wallet | Auto-create wallet untuk user baru |
+| `wallet.topped_up` | Wallet | Gateway | Push notification ke user |
+| `room.created` | Room | Chat | Auto-create chat room |
+| `room.funded` | Room | Wallet | Lock dana dari wallet ke escrow |
+| `room.released` | Room | Wallet | Transfer dana ke seller wallet |
+| `room.disputed` | Room | Dispute | Create dispute ticket |
+| `dispute.resolved` | Dispute | Room | Release atau refund dana |
+| `user.banned` | Auth | Gateway, Wallet, Room | Insta-ban propagation |
 
 ---
 
-## 6. Data Strategy — The Archives
+## 5. Security Architecture
 
-### 6.1 Database per Sanctum (Logical Separation)
-All sanctums connect to **one PostgreSQL instance** with **separate schemas** for maintainability:
-- `seal.pilgrims`, `seal.sessions`
-- `vault.treasuries`, `vault.chronicles`
-- `covenant.rooms`, `covenant.escrow_seals`
-- `communion.messages`
-- `judgment.cases`, `judgment.evidence`
+### Authentication
+- **JWT (SmallRye JWT)** — stateless, signed RS256
+- Access token: 15 menit
+- Refresh token: 7 hari (stored hashed di Redis)
+- PIN: 6-digit, encrypted dengan Argon2, required untuk setiap transaksi kritis
 
-**Rationale:** Logical separation for future extraction to physical databases.
+### Insta-Ban Mechanism
+- Akun yang terkena pelanggaran langsung dimasukkan ke **Redis blacklist set**
+- API Gateway memeriksa blacklist pada setiap request (middleware, < 1ms latency)
+- Token JWT yang masih valid tetapi user-nya di-ban akan langsung ditolak
+- Event `user.banned` dipublish ke semua service untuk invalidate local cache
 
-### 6.2 Shared Data
-- `pilgrims` table: seal-service is the single source of truth. Other sanctums query via internal REST or replicated read replica.
+### Authorization
+- RBAC: `USER`, `ADMIN`, `MODERATOR`
+- Room-level: `BUYER`, `SELLER`, `OBSERVER`
 
-### 6.3 Event Chronicle (Lightweight)
-- `covenant_events` table: Record every state change (FORGED, ACCEPTED, DELIVERED, etc.)
-- Audit trail, debugging, judgment evidence
+### Data Protection
+- PostgreSQL: SSL/TLS enforced
+- Sensitive fields (PIN, KTP): AES-256-GCM encryption at rest
+- Password: Argon2id hashing
 
 ---
 
-## 7. Deployment Architecture (Development)
+## 6. Data Strategy
+
+### PostgreSQL Schemas
+```
+auth        → users, credentials, refresh_tokens, pin_history, ban_logs
+wallet      → wallets, transactions, topup_orders, withdraw_requests, bank_accounts
+room        → rooms, room_participants, delivery_proofs, escrow_snapshots
+chat        → chat_rooms, messages, message_reactions, chat_participants
+dispute     → disputes, dispute_evidence, dispute_logs, admin_decisions
+```
+
+### Redis Keys
+```
+blacklist:jwt:{jti}       → TTL sesuai sisa token expiry
+ban:user:{userId}         → permanent / TTL
+rate_limit:ip:{ip}        → sliding window
+session:{userId}          → active device list
+pin_attempts:{userId}     → brute force protection
+```
+
+---
+
+## 7. Real-Time Architecture
+
+```
+Client (SvelteKit) ←──WebSocket──→ API Gateway ←──WebSocket──→ Chat Service
+                                           ↑
+                                           └── Redis Pub/Sub (broadcast)
+```
+
+- WebSocket connection authenticated via JWT query param saat handshake
+- Room-specific channels: `room:{roomId}`
+- User-specific channels: `user:{userId}` (notifications)
+- Heartbeat: 30s ping/pong
+- Reconnection: exponential backoff
+
+---
+
+## 8. Design Tokens (EyesOfPriestess Adaptation)
+
+### Color Palette
+| Token | Hex | Usage |
+|---|---|---|
+| `--canvas` | `#faf9f5` | Page background, default floor |
+| `--surface-card` | `#efe9de` | Feature cards, content cards |
+| `--surface-dark` | `#181715` | Dashboard chrome, tables, footer |
+| `--surface-dark-elevated` | `#252320` | Elevated cards inside dark bands |
+| `--primary` | `#cc785c` | Primary CTA, coral accent, brand mark |
+| `--primary-active` | `#a9583e` | Hover/pressed state |
+| `--ink` | `#141413` | Headlines, primary text |
+| `--body` | `#3d3d3a` | Running text |
+| `--muted` | `#6c6a64` | Secondary text, breadcrumbs |
+| `--on-primary` | `#ffffff` | Text on coral buttons |
+| `--on-dark` | `#faf9f5` | Text on dark surfaces |
+| `--success` | `#5db872` | Success states, available indicators |
+| `--warning` | `#d4a017` | Warning callouts |
+| `--error` | `#c64545` | Validation errors, dispute badges |
+| `--hairline` | `#e6dfd8` | 1px borders on cream surfaces |
+
+### Typography
+| Token | Font | Size | Weight | Line Height | Letter Spacing |
+|---|---|---|---|---|---|
+| `display-xl` | Cormorant Garamond | 64px | 500 | 1.05 | -0.02em |
+| `display-lg` | Cormorant Garamond | 48px | 500 | 1.1 | -0.02em |
+| `display-md` | Cormorant Garamond | 36px | 500 | 1.15 | -0.015em |
+| `title-lg` | Inter | 22px | 500 | 1.3 | 0 |
+| `title-md` | Inter | 18px | 500 | 1.4 | 0 |
+| `body-md` | Inter | 16px | 400 | 1.55 | 0 |
+| `body-sm` | Inter | 14px | 400 | 1.55 | 0 |
+| `caption` | Inter | 13px | 500 | 1.4 | 0 |
+| `code` | JetBrains Mono | 14px | 400 | 1.6 | 0 |
+
+### Spacing
+| Token | Value |
+|---|---|
+| `section` | 96px |
+| `xxl` | 48px |
+| `xl` | 32px |
+| `lg` | 24px |
+| `md` | 16px |
+| `sm` | 12px |
+| `xs` | 8px |
+| `xxs` | 4px |
+
+### Border Radius
+| Token | Value | Usage |
+|---|---|---|
+| `md` | 8px | Buttons, inputs, tabs |
+| `lg` | 12px | Content cards, feature cards |
+| `xl` | 16px | Hero containers, dashboard panels |
+| `pill` | 9999px | Badges, status pills |
+
+---
+
+## 9. Deployment Architecture (Dev)
 
 ```yaml
 # docker-compose.yml (simplified)
-version: '3.8'
 services:
   postgres:
     image: postgres:15-alpine
     environment:
       POSTGRES_DB: eyesofpriestess
-      POSTGRES_USER: priestess
-      POSTGRES_PASSWORD: originium_seal
-    ports:
-      - "5432:5432"
+      POSTGRES_USER: eop
+      POSTGRES_PASSWORD: eop_dev
+    ports: ["5432:5432"]
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
   redis:
     image: redis:7-alpine
-    ports:
-      - "6379:6379"
+    ports: ["6379:6379"]
 
   rabbitmq:
     image: rabbitmq:3-management
-    ports:
-      - "5672:5672"
-      - "15672:15672"
+    ports: ["5672:5672", "15672:15672"]
 
-  seal-service:
-    build: ./backend/seal-service
-    ports:
-      - "8081:8081"
-    environment:
-      - DB_URL=jdbc:postgresql://postgres:5432/eyesofpriestess
-      - REDIS_URL=redis://redis:6379
-    depends_on:
-      - postgres
-      - redis
+  auth-service:
+    build: ./backend/auth-service
+    ports: ["8081:8081"]
+    depends_on: [postgres, redis, rabbitmq]
 
-  vault-service:
-    build: ./backend/vault-service
-    ports:
-      - "8082:8082"
-    environment:
-      - DB_URL=jdbc:postgresql://postgres:5432/eyesofpriestess
-      - REDIS_URL=redis://redis:6379
-      - MIDTRANS_SERVER_KEY=${MIDTRANS_SERVER_KEY}
-    depends_on:
-      - postgres
-      - redis
-      - rabbitmq
+  wallet-service:
+    build: ./backend/wallet-service
+    ports: ["8082:8082"]
+    depends_on: [postgres, redis, rabbitmq]
 
-  covenant-service:
-    build: ./backend/covenant-service
-    ports:
-      - "8083:8083"
-    environment:
-      - DB_URL=jdbc:postgresql://postgres:5432/eyesofpriestess
-      - REDIS_URL=redis://redis:6379
-    depends_on:
-      - postgres
-      - redis
-      - rabbitmq
+  room-service:
+    build: ./backend/room-service
+    ports: ["8083:8083"]
+    depends_on: [postgres, redis, rabbitmq]
 
-  communion-service:
-    build: ./backend/communion-service
-    ports:
-      - "8084:8084"
-    environment:
-      - DB_URL=jdbc:postgresql://postgres:5432/eyesofpriestess
-      - REDIS_URL=redis://redis:6379
-    depends_on:
-      - postgres
-      - redis
+  chat-service:
+    build: ./backend/chat-service
+    ports: ["8084:8084"]
+    depends_on: [postgres, redis, rabbitmq]
 
-  judgment-service:
-    build: ./backend/judgment-service
-    ports:
-      - "8085:8085"
-    environment:
-      - DB_URL=jdbc:postgresql://postgres:5432/eyesofpriestess
-      - REDIS_URL=redis://redis:6379
-    depends_on:
-      - postgres
-      - redis
+  dispute-service:
+    build: ./backend/dispute-service
+    ports: ["8085:8085"]
+    depends_on: [postgres, redis, rabbitmq]
 
-  the-veil:
-    build: ./backend/the-veil
-    ports:
-      - "8080:8080"
-    environment:
-      - SEAL_SERVICE_URL=http://seal-service:8081
-      - VAULT_SERVICE_URL=http://vault-service:8082
-      - COVENANT_SERVICE_URL=http://covenant-service:8083
-      - COMMUNION_SERVICE_URL=http://communion-service:8084
-      - JUDGMENT_SERVICE_URL=http://judgment-service:8085
-      - REDIS_URL=redis://redis:6379
-    depends_on:
-      - seal-service
-      - vault-service
-      - covenant-service
-      - communion-service
-      - judgment-service
+  gateway:
+    build: ./backend/gateway
+    ports: ["8080:8080"]
+    depends_on: [auth-service, wallet-service, room-service, chat-service, dispute-service]
 
-  the-sanctum:
+  frontend:
     build: ./frontend
-    ports:
-      - "3000:3000"
-    environment:
-      - PUBLIC_API_URL=http://localhost:8080
-    depends_on:
-      - the-veil
-
-volumes:
-  postgres_data:
+    ports: ["3000:3000"]
+    depends_on: [gateway]
 ```
-
----
-
-## 8. Key Design Decisions
-
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| Reactive vs Imperative | **Reactive** | Non-blocking I/O, Quarkus native image support, fits SvelteKit async |
-| Monolith vs Microservices | **Microservices (logical)** | Clear sanctum boundaries, impressive portfolio, scalable per domain |
-| DB per service vs Shared | **Shared DB, separate schemas** | Pragmatic for academic, logically separated for future extraction |
-| JWT storage | **httpOnly cookie** | XSS protection, proper CORS handling |
-| Payment | **Midtrans/Xendit Sandbox** | Real integration experience, production-ready pattern |
-| Communion | **WebSocket native** | Real-time, low latency, superior to polling |
-| Auto-release | **Cron job + RabbitMQ** | Scheduled task, reliable, retry-able |
-
----
-
-## 9. Performance Targets
-
-| Metric | Target |
-|--------|--------|
-| API Response (p95) | < 150ms |
-| Communion latency | < 50ms |
-| Page Load (First Contentful Paint) | < 1.5s |
-| Time to Interactive | < 3s |
-| Concurrent Pilgrims | 5,000+ |
-| Database Connections | Pool 20 per sanctum |
 
 ---
 
@@ -356,96 +294,81 @@ volumes:
 eyesofpriestess/
 ├── README.md
 ├── docker-compose.yml
-├── .env.example
+├── .gitignore
+│
 ├── backend/
-│   ├── the-veil/
-│   │   ├── src/main/java/com/eyesofpriestess/veil/
+│   ├── gateway/                 → API Gateway (Quarkus)
+│   │   ├── src/main/java/com/eyesofpriestess/gateway/
 │   │   ├── src/main/resources/
 │   │   ├── pom.xml
 │   │   └── Dockerfile
-│   ├── seal-service/
-│   │   ├── src/main/java/com/eyesofpriestess/seal/
+│   │
+│   ├── auth-service/            → Auth Service (Quarkus)
+│   │   ├── src/main/java/com/eyesofpriestess/auth/
 │   │   │   ├── entity/
 │   │   │   ├── repository/
-│   │   │   ├── service/
 │   │   │   ├── resource/
+│   │   │   ├── service/
 │   │   │   ├── dto/
 │   │   │   ├── mapper/
 │   │   │   ├── security/
-│   │   │   └── event/
+│   │   │   └── messaging/
 │   │   ├── src/main/resources/
 │   │   ├── pom.xml
 │   │   └── Dockerfile
-│   ├── vault-service/
-│   │   └── ... (same structure)
-│   ├── covenant-service/
-│   │   └── ... (same structure)
-│   ├── communion-service/
-│   │   └── ... (same structure)
-│   └── judgment-service/
-│       └── ... (same structure)
-├── frontend/
+│   │
+│   ├── wallet-service/          → Wallet Service (Quarkus)
+│   │   ├── src/main/java/com/eyesofpriestess/wallet/
+│   │   └── ...
+│   │
+│   ├── room-service/            → Room Escrow Service (Quarkus)
+│   │   ├── src/main/java/com/eyesofpriestess/room/
+│   │   └── ...
+│   │
+│   ├── chat-service/            → Chat Service (Quarkus)
+│   │   ├── src/main/java/com/eyesofpriestess/chat/
+│   │   └── ...
+│   │
+│   └── dispute-service/         → Dispute Service (Quarkus)
+│       ├── src/main/java/com/eyesofpriestess/dispute/
+│       └── ...
+│
+├── frontend/                    → SvelteKit + TailwindCSS
 │   ├── src/
-│   │   ├── lib/
-│   │   │   ├── components/
-│   │   │   │   ├── ui/           # shadcn-svelte components
-│   │   │   │   ├── sanctum/      # Navbar, Sidebar, Footer
-│   │   │   │   ├── vault/        # BalanceCard, ChronicleList
-│   │   │   │   ├── covenant/     # RoomCard, CovenantTimeline, CommunionBox
-│   │   │   │   └── seal/         # LoginForm, PinInput
-│   │   │   ├── stores/
-│   │   │   │   ├── seal.ts       # Pilgrim state, Sacred Seal
-│   │   │   │   ├── vault.ts      # Treasury, chronicles
-│   │   │   │   └── covenant.ts   # Active covenants, current room
-│   │   │   ├── api/
-│   │   │   │   ├── client.ts     # Fetch wrapper with Seal
-│   │   │   │   ├── seal.ts       # Seal API
-│   │   │   │   ├── vault.ts      # Vault API
-│   │   │   │   ├── covenant.ts   # Covenant API
-│   │   │   │   └── communion.ts  # WebSocket + message API
-│   │   │   ├── types/
-│   │   │   │   ├── pilgrim.ts
-│   │   │   │   ├── vault.ts
-│   │   │   │   ├── covenant.ts
-│   │   │   │   └── communion.ts
-│   │   │   └── utils/
-│   │   │       ├── formatters.ts # Currency, date
-│   │   │       └── validators.ts # Form validation
-│   │   ├── routes/
-│   │   │   ├── +layout.svelte
-│   │   │   ├── +page.svelte              # Landing / Sanctum Entrance
-│   │   │   ├── rite/
-│   │   │   │   ├── +page.svelte          # Login (Rite of Return)
-│   │   │   │   └── forge/
-│   │   │   │       └── +page.svelte      # Register (Forge Identity)
-│   │   │   ├── sanctum/
-│   │   │   │   ├── +layout.svelte
-│   │   │   │   ├── +page.svelte          # Dashboard (The Observatory)
-│   │   │   │   ├── vault/
-│   │   │   │   │   ├── +page.svelte
-│   │   │   │   │   ├── offering/
-│   │   │   │   │   ├── withdrawal/
-│   │   │   │   │   └── chronicles/
-│   │   │   │   ├── covenant/
-│   │   │   │   │   ├── +page.svelte
-│   │   │   │   │   ├── forge/
-│   │   │   │   │   └── [id]/
-│   │   │   │   ├── tithing/
-│   │   │   │   │   └── +page.svelte      # P2P transfer
-│   │   │   │   └── profile/
-│   │   │   │       └── +page.svelte
 │   │   ├── app.html
-│   │   └── app.d.ts
-│   ├── static/
-│   │   ├── favicon.png
-│   │   ├── priestess-seal.svg
-│   │   └── images/
-│   ├── package.json
-│   ├── svelte.config.js
+│   │   ├── app.css
+│   │   ├── routes/
+│   │   │   ├── (auth)/
+│   │   │   │   ├── login/+page.svelte
+│   │   │   │   ├── register/+page.svelte
+│   │   │   │   └── set-pin/+page.svelte
+│   │   │   ├── (app)/
+│   │   │   │   ├── dashboard/+page.svelte
+│   │   │   │   ├── wallet/+page.svelte
+│   │   │   │   ├── rooms/+page.svelte
+│   │   │   │   ├── rooms/[id]/+page.svelte
+│   │   │   │   ├── chat/+page.svelte
+│   │   │   │   ├── history/+page.svelte
+│   │   │   │   └── profile/+page.svelte
+│   │   │   └── +layout.svelte
+│   │   ├── lib/
+│   │   │   ├── components/      → Reusable UI (Button, Card, Input, Badge, etc.)
+│   │   │   ├── stores/          → Svelte stores (auth, wallet, rooms, notifications)
+│   │   │   ├── api/             → API client modules per service
+│   │   │   ├── websocket/       → WebSocket client manager
+│   │   │   ├── types/           → TypeScript interfaces
+│   │   │   └── utils/           → Helpers, formatters, validators
+│   │   └── static/
+│   │       ├── fonts/           → Cormorant Garamond, Inter (self-hosted)
+│   │       └── images/
 │   ├── tailwind.config.js
+│   ├── svelte.config.js
 │   ├── vite.config.ts
+│   ├── tsconfig.json
+│   ├── package.json
 │   └── Dockerfile
-└── docs/
+│
+└── docs/                        → Documentation (this file set)
     ├── 01-architecture-overview.md
     ├── 02-backend-api-spec.md
     ├── 03-database-schema.md
@@ -456,4 +379,18 @@ eyesofpriestess/
 
 ---
 
-*Next: Read `02-backend-api-spec.md` for detailed API contracts of the Five Sanctums.*
+## 11. Key Design Decisions
+
+| Decision | Rationale |
+|---|---|
+| **Quarkus Reactive** | Non-blocking I/O, low memory footprint, cocok untuk microservices finansial dengan concurrency tinggi |
+| **SvelteKit** | Zero virtual DOM overhead, SSR untuk SEO, performa maksimal untuk web app |
+| **PostgreSQL per schema** | ACID rigid untuk transaksi finansial, JSONB untuk metadata fleksibel |
+| **Microservices** | Setiap domain (auth, wallet, room, chat, dispute) bisa di-scale dan di-deploy independently |
+| **Warm Editorial UI** | Differentiasi dari e-wallet kompetitor yang menggunakan cool blue/slate — menciptakan trust melalui kesan humanist, literary, dan "priestess-like" wisdom |
+| **Insta-Ban via Redis** | Keamanan real-time tanpa menunggu JWT expire — critical untuk platform escrow |
+| **Midtrans/Xendit Sandbox** | Real payment integration untuk portofolio, menunjukkan kemampuan production-ready |
+
+---
+
+*End of Architecture Overview*

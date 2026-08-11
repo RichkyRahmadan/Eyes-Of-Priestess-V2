@@ -1,203 +1,446 @@
 # EyesOfPriestess — Project Setup Guide
-## The Attunement Ritual: Development Environment Setup
 
-**Version:** 1.0  
-**Prerequisites:** Docker, Docker Compose, Java 21, Node.js 20+, Maven 3.9+
-
----
-
-## 1. Prerequisites Installation
-
-### 1.1 Java 21 (LTS)
-```bash
-# macOS (Homebrew)
-brew install openjdk@21
-
-# Ubuntu/Debian
-sudo apt update
-sudo apt install openjdk-21-jdk
-
-# Verify
-java -version  # Should show Java 21
-```
-
-### 1.2 Maven 3.9+
-```bash
-# macOS
-brew install maven
-
-# Ubuntu/Debian
-sudo apt install maven
-
-# Verify
-mvn -version
-```
-
-### 1.3 Node.js 20+ & npm
-```bash
-# Using nvm (recommended)
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
-nvm install 20
-nvm use 20
-
-# Verify
-node -v  # v20.x.x
-npm -v
-```
-
-### 1.4 Docker & Docker Compose
-```bash
-# macOS
-brew install docker docker-compose
-
-# Ubuntu/Debian
-sudo apt install docker.io docker-compose
-
-# Verify
-docker --version
-docker-compose --version
-```
+> **Version:** 1.0  
+> **Platform:** Website (Web Application)  
+> **Design System:** Warm Editorial (Cream Canvas + Coral Accent)
 
 ---
 
-## 2. Project Initialization — The Founding
+## 1. Prerequisites
 
-### 2.1 Create Project Structure
+| Tool | Version | Purpose |
+|---|---|---|
+| Java | 21 (LTS) | Quarkus backend |
+| Maven | 3.9+ | Java dependency management |
+| Node.js | 20+ (LTS) | SvelteKit frontend |
+| pnpm | 9+ | Package manager (recommended) |
+| Docker | 24+ | Containerization |
+| Docker Compose | 2.20+ | Multi-container orchestration |
+| PostgreSQL CLI | 15+ | Database management (optional) |
+| Redis CLI | 7+ | Cache inspection (optional) |
+
+---
+
+## 2. Repository Initialization
+
 ```bash
+# Create monorepo directory
 mkdir eyesofpriestess && cd eyesofpriestess
 git init
 
 # Create directory structure
-mkdir -p backend/{the-veil,seal-service,vault-service,covenant-service,communion-service,judgment-service}
-mkdir -p frontend
+mkdir -p backend/{gateway,auth-service,wallet-service,room-service,chat-service,dispute-service}
+mkdir -p frontend/src/{routes,lib/{components,stores,api,websocket,types,utils},static/{fonts,images}}
 mkdir -p docs
 ```
 
-### 2.2 Backend: Initialize Quarkus Sanctums
+---
 
-For each sanctum, run:
+## 3. Backend Setup (Quarkus)
+
+### 3.1 Generate Gateway Service
 
 ```bash
-# The Veil (Gateway)
-cd backend/the-veil
-mvn io.quarkus.platform:quarkus-maven-plugin:3.8.0:create   -DprojectGroupId=com.eyesofpriestess   -DprojectArtifactId=the-veil   -Dextensions="resteasy-reactive,vertx,smallrye-jwt,redis-client"
+cd backend/gateway
 
-# Seal Sanctum (Auth)
-cd backend/seal-service
-mvn io.quarkus.platform:quarkus-maven-plugin:3.8.0:create   -DprojectGroupId=com.eyesofpriestess   -DprojectArtifactId=seal-service   -Dextensions="resteasy-reactive,hibernate-reactive-panache,postgresql-reactive,smallrye-jwt,bcrypt,redis-client,messaging-rabbitmq"
+# Using Quarkus CLI
+quarkus create app com.eyesofpriestess:gateway:1.0.0-SNAPSHOT   --extensions="resteasy-reactive,rest-client-reactive-jackson,smallrye-jwt,smallrye-openapi,vertx"
 
-# Vault Sanctum (Wallet)
-cd backend/vault-service
-mvn io.quarkus.platform:quarkus-maven-plugin:3.8.0:create   -DprojectGroupId=com.eyesofpriestess   -DprojectArtifactId=vault-service   -Dextensions="resteasy-reactive,hibernate-reactive-panache,postgresql-reactive,redis-client,messaging-rabbitmq"
-
-# Covenant Sanctum (Room/Escrow)
-cd backend/covenant-service
-mvn io.quarkus.platform:quarkus-maven-plugin:3.8.0:create   -DprojectGroupId=com.eyesofpriestess   -DprojectArtifactId=covenant-service   -Dextensions="resteasy-reactive,hibernate-reactive-panache,postgresql-reactive,redis-client,messaging-rabbitmq,scheduler"
-
-# Communion Sanctum (Chat)
-cd backend/communion-service
-mvn io.quarkus.platform:quarkus-maven-plugin:3.8.0:create   -DprojectGroupId=com.eyesofpriestess   -DprojectArtifactId=communion-service   -Dextensions="resteasy-reactive,hibernate-reactive-panache,postgresql-reactive,websockets"
-
-# Judgment Sanctum (Dispute)
-cd backend/judgment-service
-mvn io.quarkus.platform:quarkus-maven-plugin:3.8.0:create   -DprojectGroupId=com.eyesofpriestess   -DprojectArtifactId=judgment-service   -Dextensions="resteasy-reactive,hibernate-reactive-panache,postgresql-reactive,messaging-rabbitmq"
+# Or using Maven
+mvn io.quarkus.platform:quarkus-maven-plugin:3.12.0:create   -DprojectGroupId=com.eyesofpriestess   -DprojectArtifactId=gateway   -Dextensions="resteasy-reactive,rest-client-reactive-jackson,smallrye-jwt,smallrye-openapi,vertx"
 ```
 
-### 2.3 Frontend: Initialize The Sanctum (SvelteKit)
+**Required extensions for Gateway:**
+- `resteasy-reactive` — REST endpoint handler
+- `rest-client-reactive-jackson` — HTTP client to downstream services
+- `smallrye-jwt` — JWT validation
+- `smallrye-openapi` — OpenAPI/Swagger docs
+- `vertx` — WebSocket proxy support
+- `micrometer-registry-prometheus` — Metrics
+
+### 3.2 Generate Auth Service
+
+```bash
+cd backend/auth-service
+
+quarkus create app com.eyesofpriestess:auth-service:1.0.0-SNAPSHOT   --extensions="resteasy-reactive,hibernate-reactive-panache,reactive-pg-client,smallrye-jwt,smallrye-context-propagation,argon2,smallrye-reactive-messaging-rabbitmq"
+```
+
+**Required extensions:**
+- `resteasy-reactive` — REST endpoints
+- `hibernate-reactive-panache` — Reactive ORM
+- `reactive-pg-client` — PostgreSQL reactive driver
+- `smallrye-jwt` — JWT generation & validation
+- `smallrye-context-propagation` — Context across reactive chains
+- `argon2` (via dependency) — Password hashing
+- `smallrye-reactive-messaging-rabbitmq` — Event publishing
+
+### 3.3 Generate Wallet Service
+
+```bash
+cd backend/wallet-service
+
+quarkus create app com.eyesofpriestess:wallet-service:1.0.0-SNAPSHOT   --extensions="resteasy-reactive,hibernate-reactive-panache,reactive-pg-client,smallrye-reactive-messaging-rabbitmq,smallrye-context-propagation"
+```
+
+### 3.4 Generate Room Service
+
+```bash
+cd backend/room-service
+
+quarkus create app com.eyesofpriestess:room-service:1.0.0-SNAPSHOT   --extensions="resteasy-reactive,hibernate-reactive-panache,reactive-pg-client,smallrye-reactive-messaging-rabbitmq,smallrye-context-propagation"
+```
+
+### 3.5 Generate Chat Service
+
+```bash
+cd backend/chat-service
+
+quarkus create app com.eyesofpriestess:chat-service:1.0.0-SNAPSHOT   --extensions="resteasy-reactive,hibernate-reactive-panache,reactive-pg-client,vertx,smallrye-reactive-messaging-rabbitmq"
+```
+
+### 3.6 Generate Dispute Service
+
+```bash
+cd backend/dispute-service
+
+quarkus create app com.eyesofpriestess:dispute-service:1.0.0-SNAPSHOT   --extensions="resteasy-reactive,hibernate-reactive-panache,reactive-pg-client,smallrye-reactive-messaging-rabbitmq"
+```
+
+### 3.7 Common `pom.xml` Dependencies (add to all services)
+
+```xml
+<!-- In each service pom.xml, add under <dependencies> -->
+
+<!-- Validation -->
+<dependency>
+    <groupId>io.quarkus</groupId>
+    <artifactId>quarkus-hibernate-validator</artifactId>
+</dependency>
+
+<!-- JSON Processing -->
+<dependency>
+    <groupId>io.quarkus</groupId>
+    <artifactId>quarkus-resteasy-reactive-jackson</artifactId>
+</dependency>
+
+<!-- Health Checks -->
+<dependency>
+    <groupId>io.quarkus</groupId>
+    <artifactId>quarkus-smallrye-health</artifactId>
+</dependency>
+
+<!-- Config -->
+<dependency>
+    <groupId>io.quarkus</groupId>
+    <artifactId>quarkus-config-yaml</artifactId>
+</dependency>
+
+<!-- Testing -->
+<dependency>
+    <groupId>io.quarkus</groupId>
+    <artifactId>quarkus-junit5</artifactId>
+    <scope>test</scope>
+</dependency>
+<dependency>
+    <groupId>io.rest-assured</groupId>
+    <artifactId>rest-assured</artifactId>
+    <scope>test</scope>
+</dependency>
+
+<!-- Argon2 (add to auth-service only) -->
+<dependency>
+    <groupId>de.mkammerer</groupId>
+    <artifactId>argon2-jvm</artifactId>
+    <version>2.11</version>
+</dependency>
+
+<!-- Redis Client (add to auth-service and gateway) -->
+<dependency>
+    <groupId>io.quarkus</groupId>
+    <artifactId>quarkus-redis-client</artifactId>
+</dependency>
+```
+
+### 3.8 Application Properties Template (per service)
+
+```yaml
+# src/main/resources/application.yaml
+quarkus:
+  application:
+    name: auth-service
+
+  http:
+    port: 8081
+    cors:
+      origins: "http://localhost:3000"
+      methods: "GET,POST,PUT,DELETE,OPTIONS"
+      headers: "accept,authorization,content-type,x-requested-with"
+
+  datasource:
+    reactive:
+      url: postgresql://localhost:5432/eyesofpriestess
+    username: eop
+    password: eop_dev
+
+  hibernate-orm:
+    database:
+      generation: none
+    log:
+      sql: true
+
+  hibernate-orm-panache:
+    active: true
+
+  smallrye-jwt:
+    sign:
+      key:
+        location: privateKey.pem
+    verify:
+      key:
+        location: publicKey.pem
+    issuer: https://eyesofpriestess.id
+    expiration:
+      default: 900  # 15 minutes
+
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+
+  redis:
+    hosts: redis://localhost:6379
+
+  log:
+    level: INFO
+    category:
+      "io.quarkus": INFO
+      "com.eyesofpriestess": DEBUG
+```
+
+### 3.9 Generate JWT Keys
+
+```bash
+# In auth-service/src/main/resources
+openssl genrsa -out privateKey.pem 2048
+openssl rsa -in privateKey.pem -pubout -out publicKey.pem
+
+# Copy publicKey.pem to gateway/src/main/resources/
+```
+
+---
+
+## 4. Frontend Setup (SvelteKit)
+
+### 4.1 Initialize Project
+
 ```bash
 cd frontend
 
 # Create SvelteKit project
 npm create svelte@latest .
-# Choose: Skeleton project, TypeScript, ESLint, Prettier, Playwright, Vitest
+# Select: Skeleton project, Yes TypeScript, Yes ESLint, Yes Prettier, Yes Playwright, No Vitest
 
 # Install dependencies
-npm install
+pnpm install
 
-# Install additional packages
-npm install -D tailwindcss postcss autoprefixer
-npm install -D @sveltejs/adapter-node
-npm install lucide-svelte svelte-sonner formsnap zod date-fns chart.js svelte-chartjs
-npm install -D @types/chart.js
-
-# Initialize Tailwind
+# Install TailwindCSS
+pnpm install -D tailwindcss postcss autoprefixer
 npx tailwindcss init -p
 
-# Initialize shadcn-svelte
-npx shadcn-svelte@latest init
+# Install shadcn-svelte dependencies
+pnpm install -D clsx tailwind-merge
+pnpm install class-variance-authority
+pnpm install bits-ui
+pnpm install formsnap
+pnpm install cmdk-sv
+pnpm install mode-watcher
+
+# Install additional packages
+pnpm install lucide-svelte
+pnpm install zod
+pnpm install date-fns
+
+# Install dev dependencies
+pnpm install -D @tailwindcss/typography tailwindcss-animate
 ```
 
-### 2.4 Configure Tailwind — The Priestess's Palette
-```javascript
-// frontend/tailwind.config.js
-/** @type {import('tailwindcss').Config} */
-export default {
-  content: ['./src/**/*.{html,js,svelte,ts}'],
-  theme: {
-    extend: {
-      colors: {
-        primary: {
-          50: '#f5f3ff', 100: '#ede9fe', 200: '#ddd6fe',
-          300: '#c4b5fd', 400: '#a78bfa', 500: '#8b5cf6',
-          600: '#7c3aed', 700: '#6d28d9', 800: '#5b21b6', 900: '#4c1d95',
-        },
-        gold: { 400: '#fbbf24', 500: '#f59e0b', 600: '#d97706' },
-        void: { 700: '#2d1b4e', 800: '#1a1025', 900: '#0f0a1a' },
-        canvas: { DEFAULT: '#faf8ff', soft: '#f0ecfa', softer: '#f5f3ff' }
-      },
-      fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif']
-      }
-    }
-  },
-  plugins: []
-};
+### 4.2 Tailwind Config
+
+Copy the `tailwind.config.js` from `04-frontend-spec.md` Section 2.
+
+### 4.3 Global CSS (`src/app.css`)
+
+```css
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --canvas: 250 249 245;
+    --surface-card: 239 233 222;
+    --surface-dark: 24 23 21;
+    --primary: 204 120 92;
+    --primary-active: 169 88 62;
+    --ink: 20 20 19;
+    --body: 61 61 58;
+    --muted: 108 106 100;
+    --on-primary: 255 255 255;
+    --on-dark: 250 249 245;
+    --hairline: 230 223 216;
+    --success: 93 184 114;
+    --warning: 212 160 23;
+    --error: 198 69 69;
+  }
+
+  * {
+    @apply border-hairline;
+  }
+
+  body {
+    @apply bg-canvas text-ink font-sans antialiased;
+  }
+
+  h1, h2, h3 {
+    @apply font-display;
+  }
+
+  /* Custom scrollbar for cream canvas */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: theme('colors.hairline');
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: theme('colors.muted-soft');
+  }
+}
 ```
 
-### 2.5 Configure SvelteKit
-```javascript
-// frontend/svelte.config.js
-import adapter from '@sveltejs/adapter-node';
-import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
+### 4.4 Font Loading (`src/app.html`)
 
+```html
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" href="%sveltekit.assets%/favicon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+
+    %sveltekit.head%
+  </head>
+  <body data-sveltekit-preload-data="hover">
+    <div style="display: contents">%sveltekit.body%</div>
+  </body>
+</html>
+```
+
+### 4.5 Svelte Config (`svelte.config.js`)
+
+```javascript
+import adapter from "@sveltejs/adapter-auto";
+import { vitePreprocess } from "@sveltejs/vite-plugin-svelte";
+
+/** @type {import('@sveltejs/kit').Config} */
 const config = {
   preprocess: vitePreprocess(),
-  kit: { adapter: adapter({ out: 'build' }) }
+  kit: {
+    adapter: adapter(),
+    alias: {
+      "$lib": "./src/lib",
+      "$lib/*": "./src/lib/*",
+    },
+  },
 };
 
 export default config;
 ```
 
+### 4.6 Vite Config (`vite.config.ts`)
+
+```typescript
+import { sveltekit } from "@sveltejs/kit/vite";
+import { defineConfig } from "vite";
+
+export default defineConfig({
+  plugins: [sveltekit()],
+  server: {
+    port: 3000,
+    proxy: {
+      "/api": {
+        target: "http://localhost:8080",
+        changeOrigin: true,
+      },
+      "/ws": {
+        target: "ws://localhost:8080",
+        ws: true,
+      },
+    },
+  },
+});
+```
+
+### 4.7 TypeScript Config (`tsconfig.json`)
+
+Ensure paths are configured:
+```json
+{
+  "extends": "./.svelte-kit/tsconfig.json",
+  "compilerOptions": {
+    "strict": true,
+    "resolveJsonModule": true,
+    "allowJs": true,
+    "checkJs": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "sourceMap": true,
+    "moduleResolution": "bundler"
+  }
+}
+```
+
 ---
 
-## 3. Docker Compose — The Sanctum Network
+## 5. Docker Compose (Development)
 
 Create `docker-compose.yml` at project root:
 
 ```yaml
-version: '3.8'
+version: "3.8"
 
 services:
-  # The Archive (PostgreSQL)
   postgres:
     image: postgres:15-alpine
     container_name: eop-postgres
     environment:
       POSTGRES_DB: eyesofpriestess
-      POSTGRES_USER: priestess
-      POSTGRES_PASSWORD: originium_seal
+      POSTGRES_USER: eop
+      POSTGRES_PASSWORD: eop_dev
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./backend/init-scripts:/docker-entrypoint-initdb.d
+      - ./init-scripts:/docker-entrypoint-initdb.d
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U priestess"]
+      test: ["CMD-SHELL", "pg_isready -U eop -d eyesofpriestess"]
       interval: 5s
       timeout: 5s
       retries: 5
 
-  # The Crystal (Redis)
   redis:
     image: redis:7-alpine
     container_name: eop-redis
@@ -207,7 +450,6 @@ services:
       - redis_data:/data
     command: redis-server --appendonly yes
 
-  # The Aether (RabbitMQ)
   rabbitmq:
     image: rabbitmq:3-management-alpine
     container_name: eop-rabbitmq
@@ -215,395 +457,245 @@ services:
       - "5672:5672"
       - "15672:15672"
     environment:
-      RABBITMQ_DEFAULT_USER: priestess
-      RABBITMQ_DEFAULT_PASS: originium_seal
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
 
-  # The Five Sanctums
-  seal-service:
-    build:
-      context: ./backend/seal-service
-      dockerfile: src/main/docker/Dockerfile.jvm
-    container_name: eop-seal
-    environment:
-      QUARKUS_DATASOURCE_REACTIVE_URL: postgresql://postgres:5432/eyesofpriestess
-      QUARKUS_DATASOURCE_USERNAME: priestess
-      QUARKUS_DATASOURCE_PASSWORD: originium_seal
-      QUARKUS_REDIS_HOSTS: redis://redis:6379
-      MP_MESSAGING_OUTGOING_USER_BANNED_HOST: rabbitmq
-      MP_MESSAGING_OUTGOING_USER_BANNED_PORT: 5672
-      MP_MESSAGING_OUTGOING_USER_BANNED_USERNAME: priestess
-      MP_MESSAGING_OUTGOING_USER_BANNED_PASSWORD: originium_seal
-      JWT_SECRET: ${JWT_SECRET:-originium-256-bit-secret-key-change-in-production}
+  minio:
+    image: minio/minio:latest
+    container_name: eop-minio
     ports:
-      - "8081:8081"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_started
-      rabbitmq:
-        condition: service_started
-
-  vault-service:
-    build:
-      context: ./backend/vault-service
-      dockerfile: src/main/docker/Dockerfile.jvm
-    container_name: eop-vault
+      - "9000:9000"
+      - "9001:9001"
     environment:
-      QUARKUS_DATASOURCE_REACTIVE_URL: postgresql://postgres:5432/eyesofpriestess
-      QUARKUS_DATASOURCE_USERNAME: priestess
-      QUARKUS_DATASOURCE_PASSWORD: originium_seal
-      QUARKUS_REDIS_HOSTS: redis://redis:6379
-      MP_MESSAGING_INCOMING_PAYMENT_SUCCESS_HOST: rabbitmq
-      MP_MESSAGING_INCOMING_PAYMENT_SUCCESS_PORT: 5672
-      MP_MESSAGING_INCOMING_PAYMENT_SUCCESS_USERNAME: priestess
-      MP_MESSAGING_INCOMING_PAYMENT_SUCCESS_PASSWORD: originium_seal
-      MIDTRANS_SERVER_KEY: ${MIDTRANS_SERVER_KEY:-}
-      MIDTRANS_CLIENT_KEY: ${MIDTRANS_CLIENT_KEY:-}
-      XENDIT_API_KEY: ${XENDIT_API_KEY:-}
-    ports:
-      - "8082:8082"
-    depends_on:
-      - seal-service
-
-  covenant-service:
-    build:
-      context: ./backend/covenant-service
-      dockerfile: src/main/docker/Dockerfile.jvm
-    container_name: eop-covenant
-    environment:
-      QUARKUS_DATASOURCE_REACTIVE_URL: postgresql://postgres:5432/eyesofpriestess
-      QUARKUS_DATASOURCE_USERNAME: priestess
-      QUARKUS_DATASOURCE_PASSWORD: originium_seal
-      QUARKUS_REDIS_HOSTS: redis://redis:6379
-      MP_MESSAGING_OUTGOING_ROOM_COMPLETED_HOST: rabbitmq
-      MP_MESSAGING_OUTGOING_ROOM_COMPLETED_PORT: 5672
-      MP_MESSAGING_OUTGOING_ROOM_COMPLETED_USERNAME: priestess
-      MP_MESSAGING_OUTGOING_ROOM_COMPLETED_PASSWORD: originium_seal
-    ports:
-      - "8083:8083"
-    depends_on:
-      - seal-service
-
-  communion-service:
-    build:
-      context: ./backend/communion-service
-      dockerfile: src/main/docker/Dockerfile.jvm
-    container_name: eop-communion
-    environment:
-      QUARKUS_DATASOURCE_REACTIVE_URL: postgresql://postgres:5432/eyesofpriestess
-      QUARKUS_DATASOURCE_USERNAME: priestess
-      QUARKUS_DATASOURCE_PASSWORD: originium_seal
-    ports:
-      - "8084:8084"
-    depends_on:
-      - seal-service
-
-  judgment-service:
-    build:
-      context: ./backend/judgment-service
-      dockerfile: src/main/docker/Dockerfile.jvm
-    container_name: eop-judgment
-    environment:
-      QUARKUS_DATASOURCE_REACTIVE_URL: postgresql://postgres:5432/eyesofpriestess
-      QUARKUS_DATASOURCE_USERNAME: priestess
-      QUARKUS_DATASOURCE_PASSWORD: originium_seal
-      MP_MESSAGING_INCOMING_ROOM_DISPUTED_HOST: rabbitmq
-      MP_MESSAGING_INCOMING_ROOM_DISPUTED_PORT: 5672
-      MP_MESSAGING_INCOMING_ROOM_DISPUTED_USERNAME: priestess
-      MP_MESSAGING_INCOMING_ROOM_DISPUTED_PASSWORD: originium_seal
-    ports:
-      - "8085:8085"
-    depends_on:
-      - seal-service
-
-  # The Veil (Gateway)
-  the-veil:
-    build:
-      context: ./backend/the-veil
-      dockerfile: src/main/docker/Dockerfile.jvm
-    container_name: eop-veil
-    environment:
-      SEAL_SERVICE_URL: http://seal-service:8081
-      VAULT_SERVICE_URL: http://vault-service:8082
-      COVENANT_SERVICE_URL: http://covenant-service:8083
-      COMMUNION_SERVICE_URL: http://communion-service:8084
-      JUDGMENT_SERVICE_URL: http://judgment-service:8085
-      QUARKUS_REDIS_HOSTS: redis://redis:6379
-      JWT_SECRET: ${JWT_SECRET:-originium-256-bit-secret-key-change-in-production}
-    ports:
-      - "8080:8080"
-    depends_on:
-      - seal-service
-      - vault-service
-      - covenant-service
-      - communion-service
-      - judgment-service
-
-  # The Sanctum (Frontend)
-  the-sanctum:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: eop-sanctum
-    environment:
-      PUBLIC_API_URL: http://localhost:8080
-      NODE_ENV: production
-    ports:
-      - "3000:3000"
-    depends_on:
-      - the-veil
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
 
 volumes:
   postgres_data:
   redis_data:
   rabbitmq_data:
+  minio_data:
 ```
 
 ---
 
-## 4. Environment Variables — The Seals
+## 6. Database Initialization
 
-Create `.env` at project root:
-
-```bash
-# The Archive
-POSTGRES_DB=eyesofpriestess
-POSTGRES_USER=priestess
-POSTGRES_PASSWORD=originium_seal
-
-# The Crystal
-REDIS_PASSWORD=originium_seal
-
-# The Aether
-RABBITMQ_USER=priestess
-RABBITMQ_PASSWORD=originium_seal
-
-# Sacred Seal (Generate strong secret for production)
-JWT_SECRET=originium-256-bit-secret-key-min-32-characters
-
-# Offering Channels (Sandbox)
-MIDTRANS_SERVER_KEY=SB-Mid-server-your-sandbox-key
-MIDTRANS_CLIENT_KEY=SB-Mid-client-your-sandbox-key
-XENDIT_API_KEY=xnd_development_your_key
-
-# The Sanctum
-APP_NAME=EyesOfPriestess
-APP_ENV=development
-APP_DEBUG=true
-```
-
----
-
-## 5. Running the Sanctum
-
-### 5.1 Start Infrastructure Only
-```bash
-docker-compose up -d postgres redis rabbitmq
-```
-
-### 5.2 Start All Sanctums
-```bash
-docker-compose up --build
-```
-
-### 5.3 Start Individual Sanctums (Development)
-
-**Terminal 1 - Seal:**
-```bash
-cd backend/seal-service
-mvn quarkus:dev
-# http://localhost:8081
-```
-
-**Terminal 2 - Vault:**
-```bash
-cd backend/vault-service
-mvn quarkus:dev
-# http://localhost:8082
-```
-
-**Terminal 3 - Covenant:**
-```bash
-cd backend/covenant-service
-mvn quarkus:dev
-# http://localhost:8083
-```
-
-**Terminal 4 - Communion:**
-```bash
-cd backend/communion-service
-mvn quarkus:dev
-# http://localhost:8084
-```
-
-**Terminal 5 - Judgment:**
-```bash
-cd backend/judgment-service
-mvn quarkus:dev
-# http://localhost:8085
-```
-
-**Terminal 6 - The Veil:**
-```bash
-cd backend/the-veil
-mvn quarkus:dev
-# http://localhost:8080
-```
-
-**Terminal 7 - The Sanctum:**
-```bash
-cd frontend
-npm run dev
-# http://localhost:5173
-```
-
-### 5.4 Access Points
-
-| Sanctum | URL | Notes |
-|---------|-----|-------|
-| The Sanctum | http://localhost:5173 | SvelteKit dev |
-| The Veil | http://localhost:8080 | API Gateway |
-| Seal | http://localhost:8081 | Direct access |
-| Vault | http://localhost:8082 | Direct access |
-| Covenant | http://localhost:8083 | Direct access |
-| Communion | http://localhost:8084 | Direct access |
-| Judgment | http://localhost:8085 | Direct access |
-| Aether Mgmt | http://localhost:15672 | priestess/originium_seal |
-| Archive | localhost:5432 | priestess/originium_seal |
-| Crystal | localhost:6379 | No auth (dev) |
-
----
-
-## 6. Database Migration — The Attunement Ritual
-
-### 6.1 Create Migration
-Create `backend/init-scripts/01-init-archives.sql`:
+Create `init-scripts/001-init-schemas.sql`:
 
 ```sql
--- Create archives (schemas)
-CREATE SCHEMA IF NOT EXISTS seal;
-CREATE SCHEMA IF NOT EXISTS vault;
-CREATE SCHEMA IF NOT EXISTS covenant;
-CREATE SCHEMA IF NOT EXISTS communion;
-CREATE SCHEMA IF NOT EXISTS judgment;
+-- Create schemas
+CREATE SCHEMA IF NOT EXISTS auth;
+CREATE SCHEMA IF NOT EXISTS wallet;
+CREATE SCHEMA IF NOT EXISTS room;
+CREATE SCHEMA IF NOT EXISTS chat;
+CREATE SCHEMA IF NOT EXISTS dispute;
 
--- Enable UUID
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-
--- Helper function
-CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = NOW();
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
+-- Create admin user (password: Admin123! — change in production)
+-- Run after tables are created via migration tools
 ```
 
-### 6.2 Run Migration
-```bash
-# Auto-run on docker-compose up (via init-scripts)
-# Or manually:
-docker exec -i eop-postgres psql -U priestess -d eyesofpriestess < backend/init-scripts/01-init-archives.sql
+**Recommended:** Use Flyway or Liquibase for migration management. Add to each Quarkus service:
+
+```xml
+<dependency>
+    <groupId>io.quarkus</groupId>
+    <artifactId>quarkus-flyway</artifactId>
+</dependency>
 ```
 
 ---
 
-## 7. Testing
+## 7. Environment Variables
 
-### 7.1 Backend
+### 7.1 Backend (.env template)
+
 ```bash
-cd backend/seal-service
+# Database
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=eyesofpriestess
+DB_USER=eop
+DB_PASSWORD=eop_dev
+
+# Redis
+REDIS_HOST=localhost
+REDIS_PORT=6379
+
+# RabbitMQ
+RABBITMQ_HOST=localhost
+RABBITMQ_PORT=5672
+RABBITMQ_USER=guest
+RABBITMQ_PASS=guest
+
+# JWT
+JWT_ISSUER=https://eyesofpriestess.id
+JWT_EXPIRATION=900
+
+# Payment Gateway (Midtrans Sandbox)
+MIDTRANS_SERVER_KEY=your-sandbox-server-key
+MIDTRANS_CLIENT_KEY=your-sandbox-client-key
+MIDTRANS_IS_PRODUCTION=false
+
+# Or Xendit
+XENDIT_API_KEY=your-xendit-api-key
+XENDIT_CALLBACK_TOKEN=your-callback-token
+
+# MinIO / S3
+S3_ENDPOINT=http://localhost:9000
+S3_ACCESS_KEY=minioadmin
+S3_SECRET_KEY=minioadmin
+S3_BUCKET=eyesofpriestess
+```
+
+### 7.2 Frontend (.env template)
+
+```bash
+PUBLIC_API_BASE_URL=http://localhost:8080/api/v1
+PUBLIC_WS_URL=ws://localhost:8080/ws/chat
+```
+
+---
+
+## 8. Running the Project
+
+### 8.1 Start Infrastructure
+
+```bash
+# From project root
+docker-compose up -d
+
+# Verify
+docker-compose ps
+```
+
+### 8.2 Start Backend Services
+
+```bash
+# Terminal 1: Auth Service
+cd backend/auth-service
+mvn quarkus:dev
+
+# Terminal 2: Wallet Service
+cd backend/wallet-service
+mvn quarkus:dev
+
+# Terminal 3: Room Service
+cd backend/room-service
+mvn quarkus:dev
+
+# Terminal 4: Chat Service
+cd backend/chat-service
+mvn quarkus:dev
+
+# Terminal 5: Dispute Service
+cd backend/dispute-service
+mvn quarkus:dev
+
+# Terminal 6: Gateway
+cd backend/gateway
+mvn quarkus:dev
+```
+
+### 8.3 Start Frontend
+
+```bash
+cd frontend
+pnpm dev
+```
+
+### 8.4 Access Points
+
+| Service | URL |
+|---|---|
+| Frontend | http://localhost:3000 |
+| API Gateway | http://localhost:8080 |
+| Auth Service (direct) | http://localhost:8081 |
+| Wallet Service (direct) | http://localhost:8082 |
+| Room Service (direct) | http://localhost:8083 |
+| Chat Service (direct) | http://localhost:8084 |
+| Dispute Service (direct) | http://localhost:8085 |
+| RabbitMQ Management | http://localhost:15672 (guest/guest) |
+| MinIO Console | http://localhost:9001 (minioadmin/minioadmin) |
+
+---
+
+## 9. Testing Setup
+
+### 9.1 Backend Tests
+
+```bash
+# Run tests for a service
+cd backend/auth-service
 mvn test
-mvn verify  # with coverage
-mvn package -Pnative -DskipTests  # native image
+
+# With coverage
+mvn verify
 ```
 
-### 7.2 Frontend
+### 9.2 Frontend Tests
+
 ```bash
 cd frontend
-npm run test       # Vitest
-npm run test:e2e   # Playwright
-npm run build      # build check
+
+# Unit tests (if using Vitest)
+pnpm test
+
+# E2E tests (Playwright)
+pnpm test:e2e
 ```
 
 ---
 
-## 8. Production Build
+## 10. Build for Production
 
-### 8.1 Backend
+### 10.1 Backend
+
 ```bash
-# JVM mode
-cd backend/the-veil
-mvn package -DskipTests
-
-# Native mode
-cd backend/the-veil
+# Build native executable (requires GraalVM)
+cd backend/auth-service
 mvn package -Pnative -DskipTests
+
+# Or JVM mode
+mvn package -DskipTests
 ```
 
-### 8.2 Frontend
+### 10.2 Frontend
+
 ```bash
 cd frontend
-npm run build
+pnpm build
 ```
 
-### 8.3 Production Deploy
+### 10.3 Docker Production
+
 ```bash
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
+# Build all services
+docker-compose -f docker-compose.prod.yml build
+
+# Deploy
+docker-compose -f docker-compose.prod.yml up -d
 ```
 
 ---
 
-## 9. Troubleshooting
+## 11. Troubleshooting
 
-### 9.1 Port Conflict
-```bash
-lsof -i :8080
-kill -9 <PID>
-```
-
-### 9.2 Archive Connection Failed
-```bash
-docker ps | grep postgres
-docker logs eop-postgres
-docker-compose down -v && docker-compose up -d postgres
-```
-
-### 9.3 Crystal Connection
-```bash
-redis-cli ping  # Should return PONG
-```
-
-### 9.4 Seal Secret Mismatch
-Ensure `JWT_SECRET` identical across seal-service and the-veil.
-
-### 9.5 CORS Issues
-```properties
-# the-veil/src/main/resources/application.properties
-quarkus.http.cors=true
-quarkus.http.cors.origins=http://localhost:5173,http://localhost:3000
-quarkus.http.cors.methods=GET,POST,PUT,DELETE,OPTIONS
-quarkus.http.cors.headers=Authorization,Content-Type,Covenant-Key
-```
+| Issue | Solution |
+|---|---|
+| `Connection refused` to PostgreSQL | Pastikan Docker container running: `docker-compose up -d postgres` |
+| Port already in use | Ganti port di `application.yaml` atau hentikan service yang menggunakan port |
+| JWT validation fails | Periksa public/private key pair, pastikan algoritma RS256 |
+| CORS errors | Pastikan `quarkus.http.cors.origins` mencakup `http://localhost:3000` |
+| WebSocket tidak connect | Periksa proxy config di Vite, pastikan token valid |
+| Hibernate tidak generate schema | Gunakan Flyway/Liquibase, jangan andalkan `drop-and-create` di production |
+| Redis connection timeout | Pastikan Redis container running dan tidak ada firewall block |
 
 ---
 
-## 10. Useful Commands
-
-```bash
-docker ps                          # View sanctums
-docker logs -f eop-veil          # View Veil logs
-docker logs -f eop-seal          # View Seal logs
-docker-compose restart the-veil  # Restart Veil
-docker-compose down -v --rmi all # Clean everything
-docker exec eop-postgres pg_dump -U priestess eyesofpriestess > backup.sql
-docker exec -i eop-postgres psql -U priestess -d eyesofpriestess < backup.sql
-```
-
----
-
-*Next: Read `06-feature-specifications.md` for the complete feature chronicles.*
+*End of Project Setup Guide*

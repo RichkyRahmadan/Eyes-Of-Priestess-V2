@@ -1,674 +1,516 @@
 # EyesOfPriestess — Feature Specifications
-## The Complete Chronicle of Features & User Stories
 
-**Version:** 1.0  
-**Platform:** Website (SvelteKit + Quarkus Microservices)  
-**Scope:** Full MVP (Vault Core + Covenant Escrow + Communion + Judgment)
+> **Version:** 1.0  
+> **Project:** EyesOfPriestess — Escrow E-Wallet for P2P Marketplace  
+> **Design System:** Warm Editorial (Cream Canvas + Coral Accent + Slab-Serif)
 
 ---
 
-## 1. The Seal — Authentication & Authorization
+## Feature Matrix
 
-### 1.1 Forge Identity (Registration)
-**Priority:** P0  
-**User Story:** Sebagai calon pilgrim, saya ingin menempa identitas dengan nomor HP agar bisa memasuki Sanctum.
+| # | Feature | Category | Priority | Status |
+|---|---------|----------|----------|--------|
+| 1 | User Registration & Login | Auth | P0 | Planned |
+| 2 | JWT Authentication with Refresh Token | Auth | P0 | Planned |
+| 3 | 6-Digit PIN Setup & Verification | Auth | P0 | Planned |
+| 4 | Insta-Ban System (Redis Blacklist) | Auth | P0 | Planned |
+| 5 | Password Reset Flow | Auth | P1 | Planned |
+| 6 | KTP Verification (Basic) | Auth | P2 | Planned |
+| 7 | Wallet Balance Display | Wallet | P0 | Planned |
+| 8 | Top-up via Virtual Account (Midtrans/Xendit) | Wallet | P0 | Planned |
+| 9 | Withdraw to Bank Account | Wallet | P1 | Planned |
+| 10 | P2P Direct Transfer | Wallet | P0 | Planned |
+| 11 | Transaction History with Filters | Wallet | P0 | Planned |
+| 12 | Bank Account Management | Wallet | P1 | Planned |
+| 13 | Escrow Room Creation | Room | P0 | Planned |
+| 14 | Room Funding (Buyer) | Room | P0 | Planned |
+| 15 | Delivery Confirmation (Seller) | Room | P0 | Planned |
+| 16 | Receipt Confirmation (Buyer) | Room | P0 | Planned |
+| 17 | Auto-Release Timeout | Room | P0 | Planned |
+| 18 | Room Cancellation | Room | P1 | Planned |
+| 19 | Room Timeline / Audit Trail | Room | P1 | Planned |
+| 20 | In-Room Chat (WebSocket) | Chat | P0 | Planned |
+| 21 | Chat Message History | Chat | P0 | Planned |
+| 22 | File/Image Sharing in Chat | Chat | P1 | Planned |
+| 23 | Read Receipts | Chat | P2 | Planned |
+| 24 | Dispute Filing | Dispute | P0 | Planned |
+| 25 | Evidence Upload | Dispute | P0 | Planned |
+| 26 | Admin Dispute Resolution | Dispute | P0 | Planned |
+| 27 | Refund / Release Decision | Dispute | P0 | Planned |
+| 28 | Push Notifications (WebSocket) | System | P1 | Planned |
+| 29 | Dashboard with Summary | UI | P0 | Planned |
+| 30 | Responsive Web Design | UI | P0 | Planned |
+| 31 | Landing Page (Marketing) | UI | P1 | Planned |
+| 32 | Admin Panel | Admin | P1 | Planned |
+
+---
+
+## 1. Authentication Features
+
+### F-001: User Registration
+
+**User Story:**  
+Sebagai pengguna baru, saya ingin mendaftar akun agar dapat menggunakan platform EyesOfPriestess.
 
 **Acceptance Criteria:**
-- [ ] Pilgrim mendaftar dengan nomor HP, nama lengkap, password, dan PIN 6 digit
-- [ ] Validasi: nomor HP unik, format Indonesia (+62), minimal 10 digit
-- [ ] Validasi: password minimal 8 karakter, mengandung huruf dan angka
-- [ ] Validasi: PIN harus 6 digit numerik
-- [ ] Omen (OTP) dikirim ke nomor HP (simulated: 123456 untuk development)
-- [ ] Setelah verifikasi Omen, identitas aktif dan auto-login
-- [ ] Treasury otomatis dibuat dengan saldo 0
+- [ ] User dapat mendaftar dengan email, password, nama lengkap, nomor telepon, dan username
+- [ ] Email harus valid dan unik
+- [ ] Username harus unik, 3-50 karakter, alphanumeric + underscore
+- [ ] Password minimal 8 karakter, mengandung huruf besar, huruf kecil, dan angka
+- [ ] Nomor telepon validasi format Indonesia (+62)
+- [ ] Setelah registrasi, wallet otomatis dibuat dengan balance 0
+- [ ] Email verifikasi dikirim (simulated/mock untuk academic)
 
-**API Endpoints:**
-- `POST /seal/forge`
-- `POST /seal/omen/request`
-- `POST /seal/omen/verify`
-
-**Frontend:**
-- [ ] Halaman `/rite/forge` dengan form step-by-step
-- [ ] Halaman `/rite/attune` setelah verifikasi Omen
-- [ ] Validasi real-time pada setiap field
-- [ ] Loading state dan error handling
+**UI/UX Notes:**
+- Form di tengah halaman dengan card `surface-card` background
+- Input fields dengan hairline border, focus ring coral
+- Error messages muncul di bawah field dengan `text-error`
+- Success state redirect ke halaman set PIN
 
 ---
 
-### 1.2 Rite of Return (Login)
-**Priority:** P0  
-**User Story:** Sebagai pilgrim, saya ingin melakukan Rite of Return dengan nomor HP dan password.
+### F-002: User Login
+
+**User Story:**  
+Sebagai pengguna terdaftar, saya ingin login agar dapat mengakses akun saya.
 
 **Acceptance Criteria:**
-- [ ] Login dengan nomor HP + password
-- [ ] Sacred Seal (access: 15 menit) + Refresh Seal (7 hari) diterbitkan
-- [ ] Device tracking: device_id dicatat
-- [ ] Gagal 5x = account lock 30 menit
-- [ ] Seal disimpan di localStorage
-- [ ] Auto-redirect ke Observatory jika sudah login
+- [ ] User dapat login dengan email dan password
+- [ ] JWT access token (15 menit) dan refresh token (7 hari) diterima
+- [ ] Failed login > 5 kali dalam 1 menit = rate limit 15 menit
+- [ ] Jika akun di-ban, login langsung ditolak dengan pesan yang jelas
+- [ ] "Remember me" option memperpanjang refresh token
 
-**API Endpoints:**
-- `POST /seal/rite`
-- `POST /seal/renew`
-- `POST /seal/sever`
-
-**Frontend:**
-- [ ] Halaman `/rite` dengan form phone + password
-- [ ] "Remember me" option
-- [ ] Redirect ke intended URL setelah login
+**UI/UX Notes:**
+- Login card sama style dengan register
+- Link "Lupa password?" di bawah form
+- Loading state pada tombol login
 
 ---
 
-### 1.3 PIN Sanctification
-**Priority:** P0  
-**User Story:** Sebagai pilgrim, saya ingin mengatur dan mengubah PIN agar transaksi saya aman.
+### F-003: 6-Digit PIN
+
+**User Story:**  
+Sebagai pengguna, saya ingin mengatur PIN 6 digit agar setiap transaksi kritis memerlukan verifikasi tambahan.
 
 **Acceptance Criteria:**
-- [ ] PIN 6 digit wajib untuk semua transaksi kritis
-- [ ] PIN di-hash dengan bcrypt (cost 12)
-- [ ] Gagal PIN 5x = lock 30 menit
-- [ ] Pilgrim dapat mengubah PIN dengan memasukkan PIN lama
-- [ ] PIN tidak boleh sama dengan password login
-- [ ] PIN confirmation pada: seal escrow, release, withdraw, top-up
+- [ ] PIN wajib di-set sebelum melakukan transaksi pertama kali
+- [ ] PIN terdiri dari 6 digit angka
+- [ ] PIN di-hash dengan Argon2
+- [ ] 3x salah PIN = lock 15 menit
+- [ ] PIN dapat diubah dengan memasukkan PIN lama
+- [ ] History perubahan PIN disimpan (security audit)
 
-**API Endpoints:**
-- `PUT /seal/pin`
-
-**Frontend:**
-- [ ] PIN pad component (6 digit dots)
-- [ ] Modal PIN confirmation sebelum transaksi kritis
-- [ ] Halaman `/sanctum/profile` untuk ubah PIN
+**UI/UX Notes:**
+- PIN input: 6 kotak terpisah, auto-focus next
+- Numeric keypad virtual (mobile-friendly)
+- Shake animation saat PIN salah
 
 ---
 
-### 1.4 Sanction Seal — Insta-Ban
-**Priority:** P1  
-**User Story:** Sebagai oracle (admin), saya ingin mensanksi pilgrim secara instan tanpa menunggu Seal expired.
+### F-004: Insta-Ban System
+
+**User Story:**  
+Sebagai admin, saya ingin dapat mem-ban akun secara instan tanpa menunggu JWT expire agar pelanggaran dapat dihentikan segera.
 
 **Acceptance Criteria:**
-- [ ] Oracle dapat mensanksi pilgrim via endpoint admin
-- [ ] Semua active session pilgrim di-revoke
-- [ ] Seal JTI dimasukkan ke Crystal (Redis) sanction list
-- [ ] The Veil cek Crystal sebelum proses setiap request
-- [ ] Pilgrim yang disanksi mendapat response 401 dengan code `SEAL_REVOKED`
-- [ ] Event `pilgrim.sanctioned` dipublish ke RabbitMQ
-- [ ] Pilgrim disanksi tidak bisa login kembali sampai unsanctioned
+- [ ] Admin dapat mem-ban user dengan reason dan tipe ban (FULL, TRANSACTION_ONLY, ROOM_ONLY)
+- [ ] Ban langsung efektif di semua service via Redis blacklist
+- [ ] API Gateway memeriksa blacklist pada setiap request (< 1ms)
+- [ ] Token JWT yang valid tetapi user di-ban tetap ditolak
+- [ ] User yang di-ban mendapat pesan error spesifik saat mencoba request
+- [ ] Ban dapat di-unban oleh admin
+- [ ] Event `user.banned` dipublish ke RabbitMQ untuk propagation
 
-**API Endpoints:**
-- `POST /seal/oracle/sanction`
-
-**Backend:**
-- [ ] Crystal sanction: `sanction:<jti>` → TTL = remaining expiry
-- [ ] Session table: semua session di-set severed
-- [ ] RabbitMQ event: `pilgrim.sanctioned`
+**UI/UX Notes:**
+- Admin panel: tabel user dengan action ban (modal confirmation)
+- Ban badge: coral pill pada profil user yang di-ban
+- Toast notification saat ban/unban berhasil
 
 ---
 
-### 1.5 KYC Attunement
-**Priority:** P2  
-**User Story:** Sebagai pilgrim, saya ingin melakukan attunement identitas untuk meningkatkan limit transaksi.
+## 2. Wallet Features
+
+### F-005: Balance Display
+
+**User Story:**  
+Sebagai pengguna, saya ingin melihat saldo wallet saya yang tersedia dan yang tertahan di escrow.
 
 **Acceptance Criteria:**
-- [ ] Pilgrim dapat submit NIK (16 digit)
-- [ ] NIK di-hash, tidak disimpan plain text
-- [ ] Status attunement: UNATTUNED → PENDING → ATTUNED/REJECTED
-- [ ] ATTUNED = covenant score +0.5, limit transaksi naik
-- [ ] Oracle panel untuk review (Phase 2)
+- [ ] Tampilkan available balance, escrow balance, dan total balance
+- [ ] Update real-time saat ada transaksi baru (via WebSocket)
+- [ ] Format currency IDR dengan pemisah ribuan
+- [ ] Last updated timestamp
 
-**API Endpoints:**
-- `PUT /seal/self/attune`
-- `GET /seal/self`
+**UI/UX Notes:**
+- Balance card: `display-md` Cormorant Garamond number
+- Available balance: cream card
+- Escrow balance: `surface-card` dengan icon lock
+- Total balance: dark navy card (`surface-dark`) dengan cream text
 
 ---
 
-## 2. The Vault — Wallet Core
+### F-006: Top-up via Virtual Account
 
-### 2.1 Gaze Upon Treasury (Balance Inquiry)
-**Priority:** P0  
-**User Story:** Sebagai pilgrim, saya ingin melihat treasury saya yang tersedia dan yang di-seal di escrow.
+**User Story:**  
+Sebagai pengguna, saya ingin mengisi saldo wallet melalui virtual account bank.
 
 **Acceptance Criteria:**
-- [ ] Display: available treasury + sealed treasury + total treasury
-- [ ] Update real-time setelah transaksi
-- [ ] Currency: IDR (Rupiah Indonesia)
-- [ ] Format: Rp 1.500.000,00
-- [ ] Treasury tidak boleh negatif
+- [ ] User memilih metode top-up: Virtual Account, E-Wallet, atau Retail
+- [ ] Untuk VA: pilih bank (BCA, BNI, BRI, Mandiri, Permata)
+- [ ] Sistem generate VA number via Midtrans/Xendit sandbox
+- [ ] User membayar ke VA dalam waktu 24 jam
+- [ ] Callback dari payment gateway otomatis update balance
+- [ ] Status tracking: PENDING → PAID → SUCCESS
+- [ ] Notifikasi WebSocket saat top-up berhasil
 
-**API Endpoints:**
-- `GET /vault/treasury`
-
-**Frontend:**
-- [ ] Treasury card di Observatory dan Vault page
-- [ ] Count-up animation saat treasury berubah
-- [ ] Tooltip explaining sealed treasury
+**UI/UX Notes:**
+- Top-up flow: stepper (Pilih Metode → Detail → Bayar → Selesai)
+- VA number dengan tombol copy
+- Countdown timer untuk expiry
+- Success animation (confetti) saat top-up berhasil
 
 ---
 
-### 2.2 Make Offering (Top-up)
-**Priority:** P0  
-**User Story:** Sebagai pilgrim, saya ingin mengisi treasury via Virtual Account atau e-wallet.
+### F-007: Withdraw to Bank
+
+**User Story:**  
+Sebagai pengguna, saya ingin menarik saldo ke rekening bank.
 
 **Acceptance Criteria:**
-- [ ] Metode: VA (BCA, BNI, BRI, Mandiri), E-Wallet (GoPay, OVO, DANA), QRIS
-- [ ] Minimal: Rp 10.000, Maksimal: Rp 10jt (unattuned), Rp 50jt (attuned)
-- [ ] Generate VA number unik per offering
-- [ ] VA expired dalam 24 jam
-- [ ] Callback webhook dari Midtrans/Xendit
-- [ ] Covenant-Key untuk prevent double offering
-- [ ] Fee: 0% VA, 1.5% e-wallet
+- [ ] User memilih rekening bank yang tersimpan
+- [ ] Input amount (minimal Rp 10.000)
+- [ ] Biaya admin ditampilkan transparan
+- [ ] Konfirmasi PIN sebelum submit
+- [ ] Status tracking: PENDING → PROCESSING → SUCCESS/FAILED
+- [ ] Estimasi waktu kedatangan dana (1-2 hari kerja)
 
-**API Endpoints:**
-- `POST /vault/offering`
-- `POST /vault/webhook/midtrans`
-
-**Frontend:**
-- [ ] Halaman `/sanctum/vault/offering`
-- [ ] VA display dengan copy button
-- [ ] Countdown timer expiry
-- [ ] Status tracking: PENDING → ACCEPTED → COMPLETED
+**UI/UX Notes:**
+- Withdraw form dengan summary card (amount, fee, net amount)
+- Fee breakdown transparan
+- Bank account selector dengan logo bank
 
 ---
 
-### 2.3 Withdrawal Ritual
-**Priority:** P0  
-**User Story:** Sebagai pilgrim, saya ingin menarik treasury ke rekening bank.
+### F-008: P2P Direct Transfer
+
+**User Story:**  
+Sebagai pengguna, saya ingin transfer saldo ke user EyesOfPriestess lain secara instan.
 
 **Acceptance Criteria:**
-- [ ] Withdraw ke bank (BCA, BNI, BRI, Mandiri)
-- [ ] Minimal: Rp 50.000, Maksimal: Rp 25jt/hari
-- [ ] Fee: Rp 6.500 per transaksi
-- [ ] PIN confirmation wajib
-- [ ] Rekening tersimpan untuk withdrawal berikutnya
-- [ ] Status: PENDING → PROCESSING → COMPLETED
+- [ ] Transfer by username atau email
+- [ ] Validasi penerima exists dan active
+- [ ] Input amount dan note (opsional)
+- [ ] Konfirmasi PIN
+- [ ] Transfer instan (tidak perlu escrow)
+- [ ] Notifikasi real-time ke penerima
 
-**API Endpoints:**
-- `POST /vault/withdrawal`
-- `GET /vault/banks`
-
-**Frontend:**
-- [ ] Halaman `/sanctum/vault/withdrawal`
-- [ ] Dropdown bank selector
-- [ ] Saved bank accounts list
-- [ ] Summary: amount - fee = net
-- [ ] PIN confirmation modal
+**UI/UX Notes:**
+- Transfer form dengan user search (dropdown)
+- Confirmation modal dengan detail transfer
+- Success toast dengan tombol "Lihat Detail"
 
 ---
 
-### 2.4 P2P Tithing (Direct Transfer)
-**Priority:** P0  
-**User Story:** Sebagai pilgrim, saya ingin transfer treasury ke pilgrim lain secara instan.
+### F-009: Transaction History
+
+**User Story:**  
+Sebagai pengguna, saya ingin melihat riwayat transaksi saya dengan filter dan pencarian.
 
 **Acceptance Criteria:**
-- [ ] Transfer via nomor HP atau username
-- [ ] Validasi: penerima harus pilgrim aktif
-- [ ] Minimal: Rp 1.000, Maksimal: Rp 10jt per transaksi
-- [ ] Fee: 0% (promo) atau Rp 1.000 (normal)
-- [ ] Instan: treasury penerima bertambah real-time
-- [ ] PIN confirmation wajib
-- [ ] Catatan opsional
+- [ ] List transaksi dengan pagination (20 per page)
+- [ ] Filter by type: Top-up, Withdraw, Transfer, Escrow
+- [ ] Filter by status: Success, Pending, Failed
+- [ ] Filter by date range
+- [ ] Search by description atau counterparty name
+- [ ] Export ke CSV (P2)
 
-**API Endpoints:**
-- `POST /vault/tithing`
-
-**Frontend:**
-- [ ] Halaman `/sanctum/tithing`
-- [ ] Auto-complete pencarian pilgrim
-- [ ] Confirmation screen
-- [ ] PIN confirmation modal
-- [ ] Success screen
+**UI/UX Notes:**
+- Table/list dengan icon type (color-coded)
+- IN = green (`text-success`), OUT = coral (`text-primary`)
+- Status badge: pill style
+- Filter bar sticky di atas list
 
 ---
 
-### 2.5 Read Chronicles (Transaction History)
-**Priority:** P0  
-**User Story:** Sebagai pilgrim, saya ingin melihat riwayat semua transaksi saya.
+## 3. Room Escrow Features
+
+### F-010: Create Escrow Room
+
+**User Story:**  
+Sebagai seller, saya ingin membuat room escrow untuk transaksi dengan buyer.
 
 **Acceptance Criteria:**
-- [ ] List semua transaksi: offering, withdrawal, tithing, escrow, fee
-- [ ] Filter by type dan date range
-- [ ] Pagination: 20 per page
-- [ ] Sort: newest first
-- [ ] Detail: amount, fee, net, status, reference, timestamp
-- [ ] Treasury snapshot (before/after)
+- [ ] Seller input: title, description, item category, price
+- [ ] Seller input buyer username/email (atau generate link invite)
+- [ ] Room code auto-generate: EOP-XXX123 format
+- [ ] Fee dihitung otomatis (1% dari item price, min Rp 2.500)
+- [ ] Chat room otomatis dibuat
+- [ ] Notifikasi ke buyer
 
-**API Endpoints:**
-- `GET /vault/chronicles?page=&limit=&filter=&from=&to=`
-- `GET /vault/chronicles/:id`
-
-**Frontend:**
-- [ ] Halaman `/sanctum/vault/chronicles`
-- [ ] Chronicle item card dengan icon type + color
-- [ ] Infinite scroll atau pagination
-- [ ] Detail modal on click
-- [ ] Empty void untuk pilgrim baru
+**UI/UX Notes:**
+- Create room form: stepper atau single page
+- Price input dengan IDR formatting
+- Category selector: icon + label
+- Room code displayed prominently (copyable)
 
 ---
 
-## 3. The Covenant — Escrow Room
+### F-011: Fund Room (Buyer)
 
-### 3.1 Forge Covenant
-**Priority:** P0  
-**User Story:** Sebagai initiator, saya ingin menempa covenant agar dana saya aman.
+**User Story:**  
+Sebagai buyer, saya ingin mendanai room escrow agar transaksi dapat berlangsung.
 
 **Acceptance Criteria:**
-- [ ] Initiator input: counterpart phone/username, item name, description, category, amount, deadline
-- [ ] Validasi: counterpart harus pilgrim aktif, tidak boleh diri sendiri
-- [ ] Validasi: amount > 0, minimal Rp 10.000
-- [ ] Validasi: initiator treasury >= amount (hold dana langsung)
-- [ ] Deadline: default 72 jam, max 168 jam
-- [ ] Generate covenant code unik: CVN-XXXXX
-- [ ] Dana di-hold dari available_treasury ke sealed_treasury
-- [ ] Status: FORGED
-- [ ] Notifikasi ke counterpart
-- [ ] Covenant-Key untuk prevent double creation
+- [ ] Buyer melihat detail room dan total amount (price + fee)
+- [ ] Konfirmasi PIN
+- [ ] Dana dipindahkan dari available balance ke escrow balance
+- [ ] Status room berubah ke FUNDED
+- [ ] Seller menerima notifikasi
+- [ ] Timeline diupdate
 
-**API Endpoints:**
-- `POST /covenant`
-- `GET /covenant?role=&status=`
-
-**Frontend:**
-- [ ] Halaman `/sanctum/covenant/forge` multi-step form
-- [ ] Step 1: Cari counterpart
-- [ ] Step 2: Detail item
-- [ ] Step 3: Deadline + review
-- [ ] Step 4: PIN confirmation
-- [ ] Success: redirect ke covenant chamber
+**UI/UX Notes:**
+- Funding confirmation modal dengan detail breakdown
+- Balance check: warning jika insufficient balance
+- Success animation
 
 ---
 
-### 3.2 Accept/Reject Covenant (Counterpart)
-**Priority:** P0  
-**User Story:** Sebagai counterpart, saya ingin menerima atau menolak covenant.
+### F-012: Delivery Confirmation (Seller)
+
+**User Story:**  
+Sebagai seller, saya ingin mengkonfirmasi pengiriman barang/jasa dengan bukti.
 
 **Acceptance Criteria:**
-- [ ] Counterpart menerima notifikasi covenant baru
-- [ ] Counterpart dapat review detail: item, amount, initiator covenant score
-- [ ] Accept: status → ACCEPTED, deadline countdown mulai
-- [ ] Reject: status → BROKEN, dana kembali ke initiator
-- [ ] Tolak hanya saat status FORGED
-- [ ] PIN confirmation untuk accept
+- [ ] Seller upload proof (image, video, document, atau link)
+- [ ] Optional delivery notes
+- [ ] Multiple proof files allowed (max 5, 5MB each)
+- [ ] Status room berubah ke DELIVERED
+- [ ] Auto-release timer mulai berjalan (default 24 jam)
+- [ ] Buyer menerima notifikasi
 
-**API Endpoints:**
-- `POST /covenant/:id/accept`
-- `POST /covenant/:id/reject`
-
-**Frontend:**
-- [ ] Covenant card di Observatory dengan action buttons
-- [ ] Covenant chamber dengan Accept/Reject buttons
-- [ ] Confirmation modal
-- [ ] Notifikasi real-time via Communion
+**UI/UX Notes:**
+- File upload drag-and-drop area
+- Preview thumbnail untuk images
+- Notes textarea
 
 ---
 
-### 3.3 Fulfill Oath (Counterpart Deliver)
-**Priority:** P0  
-**User Story:** Sebagai counterpart, saya ingin mengirim barang dan upload bukti pengiriman.
+### F-013: Receipt Confirmation (Buyer)
+
+**User Story:**  
+Sebagai buyer, saya ingin mengkonfirmasi penerimaan barang/jasa.
 
 **Acceptance Criteria:**
-- [ ] Upload bukti: foto resi, screenshot, atau file
-- [ ] Max file size: 5MB
-- [ ] Supported: JPG, PNG, PDF
-- [ ] Catatan pengiriman opsional
-- [ ] Status → DELIVERED
-- [ ] Initiator menerima notifikasi
-- [ ] PIN confirmation wajib
-- [ ] Auto-release countdown mulai
+- [ ] Buyer melihat delivery proofs
+- [ ] Konfirmasi PIN
+- [ ] Optional: rating (1-5) dan review
+- [ ] Dana dilepas ke seller (minus fee)
+- [ ] Status room berubah ke COMPLETED
+- [ ] Review disimpan dan ditampilkan pada profil seller
 
-**API Endpoints:**
-- `POST /covenant/:id/fulfill`
-
-**Frontend:**
-- [ ] Upload component dengan drag-and-drop
-- [ ] Preview file
-- [ ] Progress bar
-- [ ] Delivery notes textarea
-- [ ] PIN confirmation modal
+**UI/UX Notes:**
+- Star rating component (interactive)
+- Review textarea
+- Confirmation modal: "Apakah Anda yakin barang sudah diterima?"
 
 ---
 
-### 3.4 Confirm Fulfillment (Initiator)
-**Priority:** P0  
-**User Story:** Sebagai initiator, saya ingin konfirmasi penerimaan agar dana release ke counterpart.
+### F-014: Auto-Release Timeout
+
+**User Story:**  
+Sebagai sistem, saya ingin otomatis melepaskan dana ke seller jika buyer tidak merespons dalam waktu tertentu.
 
 **Acceptance Criteria:**
-- [ ] Initiator dapat konfirmasi terima barang
-- [ ] Status → FULFILLED
-- [ ] Dana release dari escrow ke counterpart treasury (minus fee 1%)
-- [ ] Fee masuk ke treasury system
-- [ ] Rating 1-5 dan review opsional
-- [ ] PIN confirmation wajib
-- [ ] Receipt generated
-- [ ] Covenant score update: +0.1 untuk successful transaction
+- [ ] Timer berjalan sejak status DELIVERED
+- [ ] Default: 24 jam (dapat di-extend oleh buyer, max 72 jam total)
+- [ ] Background job (Quarkus Scheduler) cek setiap 5 menit
+- [ ] Jika timeout tercapai: auto-release ke seller
+- [ ] Notifikasi ke both parties
+- [ ] Timeline diupdate dengan actor "SYSTEM"
 
-**API Endpoints:**
-- `POST /covenant/:id/confirm`
-
-**Frontend:**
-- [ ] "Confirm Fulfillment" button di covenant chamber
-- [ ] Rating stars component
-- [ ] Review textarea
-- [ ] PIN confirmation modal
-- [ ] Success animation + receipt download
+**UI/UX Notes:**
+- Countdown timer pada room detail (prominent)
+- Warning color saat < 1 jam tersisa
+- Extend button dengan modal confirmation
 
 ---
 
-### 3.5 Auto-Release Timeout
-**Priority:** P0  
-**User Story:** Sebagai sistem, saya ingin auto-release dana jika initiator tidak merespons.
+### F-015: Open Dispute
+
+**User Story:**  
+Sebagai buyer atau seller, saya ingin membuka dispute jika ada masalah dengan transaksi.
 
 **Acceptance Criteria:**
-- [ ] Cron job setiap jam cek covenant DELIVERED dengan deadline lewat
-- [ ] Auto-release: dana ke counterpart (minus fee)
-- [ ] Status → FULFILLED
-- [ ] Event log: AUTO_RELEASED
-- [ ] Notifikasi ke initiator dan counterpart
-- [ ] Bisa di-disable jika judgment sedang berlangsung
+- [ ] Dispute dapat dibuka oleh buyer atau seller
+- [ ] Hanya dapat dibuka saat status FUNDED atau DELIVERED
+- [ ] Input: reason, description, evidence files
+- [ ] Status room berubah ke DISPUTED
+- [ ] Dana tetap di-hold sampai dispute resolved
+- [ ] Admin menerima notifikasi
 
-**Backend:**
-- [ ] Quarkus Scheduler: `@Scheduled(every = "1h")`
-- [ ] Query: `SELECT * FROM covenants WHERE status = 'DELIVERED' AND deadline_at <= NOW()`
-- [ ] Atomic transaction
+**UI/UX Notes:**
+- Dispute button: warning style (`text-warning`)
+- Form dengan reason dropdown + custom description
+- Evidence upload (sama dengan delivery proof)
 
 ---
 
-### 3.6 Sever Covenant (Initiator)
-**Priority:** P1  
-**User Story:** Sebagai initiator, saya ingin membatalkan covenant sebelum counterpart accept.
+## 4. Chat Features
+
+### F-016: In-Room Chat
+
+**User Story:**  
+Sebagai buyer/seller, saya ingin berkomunikasi dalam room escrow secara real-time.
 
 **Acceptance Criteria:**
-- [ ] Sever hanya saat status FORGED
-- [ ] Status → BROKEN
-- [ ] Dana kembali ke initiator treasury
-- [ ] Notifikasi ke counterpart
-- [ ] Tidak ada fee untuk sever
+- [ ] WebSocket connection untuk real-time messaging
+- [ ] Message types: TEXT, IMAGE, FILE, SYSTEM
+- [ ] System messages auto-generated saat status room berubah
+- [ ] Message history tersimpan dan dapat di-load
+- [ ] Soft delete (tampil "pesan dihapus")
 
-**API Endpoints:**
-- `POST /covenant/:id/sever`
+**UI/UX Notes:**
+- Dark navy chat area (`surface-dark`) — product chrome feel
+- Message bubbles: buyer (coral tint), seller (cream tint)
+- System messages: centered, muted text, italic
+- Typing indicator
 
 ---
 
-### 3.7 Covenant Timeline
-**Priority:** P1  
-**User Story:** Sebagai pilgrim, saya ingin melihat timeline progress covenant.
+### F-017: Chat Room List
+
+**User Story:**  
+Sebagai pengguna, saya ingin melihat daftar chat room saya.
 
 **Acceptance Criteria:**
-- [ ] Vertical stepper: FORGED → ACCEPTED → DELIVERED → FULFILLED
-- [ ] Setiap step: timestamp, actor, note
-- [ ] Step aktif: highlighted
-- [ ] Step completed: checkmark icon
-- [ ] Step pending: grayed out
-- [ ] Proof links clickable
-- [ ] Mobile-friendly
+- [ ] List semua chat rooms yang diikuti user
+- [ ] Sort by last message time (newest first)
+- [ ] Unread count badge
+- [ ] Last message preview
+- [ ] Escrow status indicator
 
-**Frontend:**
-- [ ] Timeline component di covenant chamber
-- [ ] Color-coded steps
-- [ ] Animated transitions
+**UI/UX Notes:**
+- WhatsApp-style list: avatar, name, preview, time, badge
+- Search bar di atas list
+- Active room highlight: `surface-card` background
 
 ---
 
-## 4. The Communion — In-Room Chat
+## 5. Dispute Resolution Features
 
-### 4.1 Real-time Communion
-**Priority:** P1  
-**User Story:** Sebagai pilgrim, saya ingin berkomunikasi dengan lawan transaksi dalam covenant.
+### F-018: Admin Dispute Dashboard
+
+**User Story:**  
+Sebagai admin, saya ingin melihat dan mengelola semua dispute.
 
 **Acceptance Criteria:**
-- [ ] WebSocket connection per covenant
-- [ ] Send/receive text messages real-time
-- [ ] Message persistence
-- [ ] Display sender name, avatar, timestamp
-- [ ] Auto-scroll ke message terbaru
-- [ ] Typing indicator
-- [ ] Read receipts
-- [ ] System messages: status changes, delivery notifications
-- [ ] Reconnect otomatis
-- [ ] Max 1000 messages per covenant
+- [ ] Tabel dispute dengan filter: status, date range
+- [ ] Detail view: evidence, chat history, room timeline
+- [ ] Action: resolve dengan decision
+- [ ] Decision options: RELEASE_TO_SELLER, REFUND_BUYER, PARTIAL_REFUND
 
-**API Endpoints:**
-- `WS /ws/communion?seal=&covenantId=`
-- `GET /communion/covenant/:id/messages?cursor=&limit=`
-
-**Frontend:**
-- [ ] Communion panel di covenant chamber
-- [ ] Message bubble component
-- [ ] Communion input dengan send button
-- [ ] Typing indicator dots
-- [ ] Connection status indicator
-- [ ] Load more on scroll up
+**UI/UX Notes:**
+- Admin panel: dark sidebar, cream content area
+- Evidence gallery: lightbox view
+- Decision form dengan reason textarea
 
 ---
 
-## 5. The Judgment — Dispute System
+### F-019: Dispute Resolution
 
-### 5.1 Invoke Judgment
-**Priority:** P1  
-**User Story:** Sebagai pilgrim, saya ingin mengajukan judgment jika ada masalah.
+**User Story:**  
+Sebagai admin, saya ingin memutuskan dispute dan mengeksekusi hasil keputusan.
 
 **Acceptance Criteria:**
-- [ ] Judgment hanya saat status DELIVERED
-- [ ] Alasan: ITEM_NOT_AS_DESCRIBED, NOT_DELIVERED, OTHER
-- [ ] Deskripsi detail wajib (min 20 karakter)
-- [ ] Upload evidence: max 5 files, 5MB each
-- [ ] Status covenant → JUDGMENT
-- [ ] Dana di-frozen
-- [ ] PIN confirmation wajib
-- [ ] Notifikasi ke lawan transaksi
+- [ ] Admin memilih decision dan input reason
+- [ ] Untuk PARTIAL_REFUND: input refund amount
+- [ ] Konfirmasi modal sebelum eksekusi
+- [ ] Eksekusi: create transaction (release/refund)
+- [ ] Status room diupdate (COMPLETED atau REFUNDED)
+- [ ] Notifikasi ke both parties
 
-**API Endpoints:**
-- `POST /covenant/:id/judgment`
-
-**Frontend:**
-- [ ] "Invoke Judgment" button di covenant chamber
-- [ ] Judgment form: reason, description, file upload
-- [ ] Evidence preview grid
-- [ ] PIN confirmation modal
+**UI/UX Notes:**
+- Decision cards: 4 options dengan icon
+- Amount input untuk partial refund (slider + number)
+- Final confirmation dengan summary
 
 ---
 
-### 5.2 Render Judgment (Oracle)
-**Priority:** P1  
-**User Story:** Sebagai oracle, saya ingin menyelesaikan judgment dengan adil.
+## 6. System Features
+
+### F-020: Push Notifications
+
+**User Story:**  
+Sebagai pengguna, saya ingin menerima notifikasi real-time untuk aktivitas penting.
 
 **Acceptance Criteria:**
-- [ ] Oracle panel: list semua judgment dengan filter
-- [ ] Detail judgment: covenant info, evidence, communion history, timeline
-- [ ] Keputusan: RELEASE_TO_COUNTERPART, REFUND_TO_INITIATOR, SPLIT
-- [ ] Jika SPLIT: input amount ke initiator
-- [ ] Oracle notes wajib
-- [ ] Status judgment → RESOLVED
-- [ ] Dana diproses sesuai keputusan
-- [ ] Notifikasi ke kedua belah pihak
-- [ ] Covenant score penalty untuk pihak yang kalah (-0.5)
+- [ ] Notifikasi via WebSocket
+- [ ] Types: transaction, room status, chat message, dispute update
+- [ ] Browser notification API (jika diizinkan)
+- [ ] Notification center: list semua notifikasi
+-- [ ] Mark as read / clear all
 
-**API Endpoints:**
-- `GET /judgment/oracle/all`
-- `POST /judgment/:id/render`
-
-**Frontend:**
-- [ ] Halaman `/sanctum/judgment` (oracle view: all, pilgrim view: my judgments)
-- [ ] Judgment detail: evidence gallery, decision panel
-- [ ] Resolution form
-- [ ] Confirmation modal
+**UI/UX Notes:**
+- Toast: slide in dari kanan atas, auto-dismiss 5s
+- Notification bell icon dengan unread badge (coral)
+- Notification drawer: slide from right
 
 ---
 
-## 6. The Observatory — Dashboard & Analytics
+### F-021: Dashboard
 
-### 6.1 Pilgrim Observatory
-**Priority:** P1  
-**User Story:** Sebagai pilgrim, saya ingin melihat overview akun di satu halaman.
+**User Story:**  
+Sebagai pengguna, saya ingin melihat ringkasan aktivitas saya dalam satu halaman.
 
 **Acceptance Criteria:**
-- [ ] Treasury card: available + sealed
-- [ ] Quick actions: Make Offering, Forge Covenant, Bestow Tithing
-- [ ] Stats: total covenants, fulfillment rate, active covenants, covenant score
-- [ ] Recent covenants: 5 terakhir
-- [ ] Recent chronicles: 5 terakhir
-- [ ] Chart: weekly covenant volume
-- [ ] Notifications: unread count
-- [ ] Responsive layout
+- [ ] Balance summary cards
+- [ ] Quick action buttons
+- [ ] Recent transactions (5 items)
+- [ ] Active rooms (max 4)
+- [ ] Unread chat count
+- [ ] Notification summary
 
-**Frontend:**
-- [ ] Halaman `/sanctum/observatory`
-- [ ] Grid layout dengan cards
-- [ ] Chart.js line chart
-- [ ] Skeleton loading
-- [ ] Auto-refresh setiap 30 detik
+**UI/UX Notes:**
+- Editorial layout: generous whitespace
+- Cards: alternating cream and dark navy
+- Numbers: Cormorant Garamond, large
 
 ---
 
-## 7. Omens — Notifications
+### F-022: Landing Page
 
-### 7.1 Push Notifications
-**Priority:** P1  
-**User Story:** Sebagai pilgrim, saya ingin menerima notifikasi real-time.
+**User Story:**  
+Sebagai pengunjung baru, saya ingin memahami apa itu EyesOfPriestess dan mengapa saya harus menggunakannya.
 
 **Acceptance Criteria:**
-- [ ] Notifikasi untuk: covenant forged, accepted, delivered, fulfilled, judgment, broken
-- [ ] Notifikasi untuk: offering accepted, withdrawal completed, tithing received
-- [ ] Via: in-app (Communion), browser push (Phase 2), email (Phase 2)
-- [ ] Notification bell dengan unread count
-- [ ] Notification list: timestamp, type, message, link
-- [ ] Mark as read / mark all as read
+- [ ] Hero section dengan headline editorial
+- [ ] How it works (3 steps)
+- [ ] Trust indicators / stats
+- [ ] Use cases dengan tabs
+- [ ] Security features
+- [ ] CTA sections (coral + dark navy)
+- [ ] Footer dengan links
 
-**Backend:**
-- [ ] RabbitMQ consumer untuk setiap event type
-- [ ] Notification table: pilgrim_id, type, message, is_read, created_at
-
-**Frontend:**
-- [ ] Notification bell di Veil (navbar)
-- [ ] Dropdown notification list
-- [ ] Toast notification (svelte-sonner)
-- [ ] Badge count
+**UI/UX Notes:**
+- Pacing: cream → cream-card → dark-mockup → cream → coral-callout → dark-footer
+- Headlines: Cormorant Garamond, negative tracking
+- Product mockup cards: dark navy dengan code/data chrome
 
 ---
 
-## 8. Profile & Settings
-
-### 8.1 Pilgrim Profile
-**Priority:** P1  
-**User Story:** Sebagai pilgrim, saya ingin melihat dan mengatur profil saya.
-
-**Acceptance Criteria:**
-- [ ] Display: photo, name, phone, email, covenant score, attunement status
-- [ ] Edit: name, email, photo
-- [ ] Stats: total covenants, judgment rate, attuned since
-- [ ] Saved bank accounts: list, add, delete, set primary
-- [ ] Settings: transmute PIN, omen preferences, theme
-- [ ] Sever Seal button
-
-**API Endpoints:**
-- `GET /seal/self`
-- `PUT /seal/self`
-- `PUT /seal/pin`
-
-**Frontend:**
-- [ ] Halaman `/sanctum/profile`
-- [ ] Profile card dengan avatar upload
-- [ ] Tabs: Profile, Bank Accounts, Settings
-- [ ] Form validation dengan Zod
-
----
-
-## 9. Oracle Features — Admin
-
-### 9.1 Oracle Panel
-**Priority:** P2  
-**User Story:** Sebagai oracle, saya ingin mengelola Sanctum.
-
-**Acceptance Criteria:**
-- [ ] Dashboard: total pilgrims, total covenants, active covenants, judgments
-- [ ] Pilgrim management: list, search, sanction/unsanction, view profile
-- [ ] Judgment management: list, assign, render
-- [ ] Attunement review: list, approve/reject
-- [ ] Covenant monitoring: list, filter, force sever (emergency)
-
-**Frontend:**
-- [ ] Route `/oracle` (protected, oracle only)
-- [ ] Sidebar navigation
-- [ ] Data tables dengan sorting, filtering, pagination
-- [ ] Charts: daily active pilgrims, covenant volume, judgment rate
-
----
-
-## 10. Non-Functional Requirements
-
-### 10.1 Performance
-- [ ] API response < 150ms (p95)
-- [ ] Communion latency < 50ms
-- [ ] Page load FCP < 1.5s
-- [ ] TTI < 3s
-- [ ] Support 5,000 concurrent pilgrims
-
-### 10.2 Security
-- [ ] OWASP Top 10 compliance
-- [ ] SQL injection prevention
-- [ ] XSS prevention
-- [ ] CSRF protection
-- [ ] Rate limiting
-- [ ] Input validation (Zod + Bean Validation)
-- [ ] HTTPS only (production)
-- [ ] Secure headers
-
-### 10.3 Accessibility
-- [ ] WCAG 2.1 AA compliance
-- [ ] Keyboard navigation
-- [ ] Screen reader support
-- [ ] Color contrast >= 4.5:1
-- [ ] Focus indicators
-- [ ] Alt text for images
-
-### 10.4 Responsive
-- [ ] Mobile-first
-- [ ] Breakpoints: sm 640px, md 768px, lg 1024px, xl 1280px
-- [ ] Touch-friendly (min 44x44px)
-- [ ] Bottom navigation for mobile
-- [ ] Sidebar collapsible for tablet/desktop
-
----
-
-## 11. Feature Priority Matrix
-
-| Feature | Priority | Complexity | Value |
-|---------|----------|------------|-------|
-| Forge Identity / Rite of Return | P0 | Medium | Critical |
-| PIN Sanctification | P0 | Low | Critical |
-| Gaze Upon Treasury | P0 | Low | Critical |
-| Make Offering | P0 | High | Critical |
-| Withdrawal Ritual | P0 | High | Critical |
-| P2P Tithing | P0 | Medium | Critical |
-| Read Chronicles | P0 | Medium | High |
-| Forge Covenant | P0 | High | Critical |
-| Accept/Reject Covenant | P0 | Medium | Critical |
-| Fulfill Oath | P0 | Medium | Critical |
-| Confirm Fulfillment | P0 | Medium | Critical |
-| Auto-Release | P0 | Medium | Critical |
-| Sanction Seal | P1 | Medium | High |
-| Real-time Communion | P1 | High | High |
-| Invoke/Render Judgment | P1 | High | High |
-| Observatory | P1 | Medium | High |
-| Omens (Notifications) | P1 | Medium | High |
-| Pilgrim Profile | P1 | Low | Medium |
-| KYC Attunement | P2 | Medium | Medium |
-| Oracle Panel | P2 | High | Medium |
-| Rating & Review | P2 | Low | Medium |
-
----
-
-## 12. Success Metrics (KPIs)
+## 7. KPIs & Success Metrics
 
 | Metric | Target |
-|--------|--------|
-| Pilgrim Registration Conversion | > 70% |
-| Covenant Forge to Fulfillment | > 80% |
-| Judgment Rate | < 5% |
-| Average Covenant Completion Time | < 24 hours |
-| Pilgrim Satisfaction (NPS) | > 50 |
-| App Load Time (FCP) | < 1.5s |
-| API Response Time (p95) | < 150ms |
-| Uptime | > 99.9% |
+|---|---|
+| User Registration Conversion | > 60% dari landing page visit |
+| Room Creation to Funding | > 70% dalam 24 jam |
+| Dispute Rate | < 5% dari total transaksi |
+| Auto-Release Trigger Rate | < 10% (artinya mostly manual confirm) |
+| Average Resolution Time | < 48 jam untuk dispute |
+| Page Load Time | < 2s untuk dashboard |
+| WebSocket Latency | < 100ms untuk chat |
 
 ---
 
-*End of the Chronicle. Refer to other scrolls for technical implementation details.*
+*End of Feature Specifications*
