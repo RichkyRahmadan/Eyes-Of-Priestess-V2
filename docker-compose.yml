@@ -71,14 +71,14 @@ services:
     networks:
       - sanctum-network
 
-  # ─── FIVE SANCTUMS (BACKEND MICROSERVICES) ─────────────────────────────────
+  # ─── BACKEND MICROSERVICES ───────────────────────────────────────────────────
 
-  # Seal Sanctum — Authentication & Identity (port 8081)
-  seal-service:
+  # Auth Service — Authentication & Identity (port 8081)
+  auth-service:
     build:
       context: ./backend
-      dockerfile: seal-service/Dockerfile
-    container_name: eop-seal
+      dockerfile: auth-service/Dockerfile
+    container_name: eop-auth
     restart: unless-stopped
     environment:
       QUARKUS_DATASOURCE_REACTIVE_URL: postgresql://postgres:5432/eyesofpriestess
@@ -105,12 +105,12 @@ services:
     networks:
       - sanctum-network
 
-  # Vault Sanctum — Treasury & Payments / Xendit (port 8082)
-  vault-service:
+  # Wallet Service — Treasury & Payments / Xendit (port 8082)
+  wallet-service:
     build:
       context: ./backend
-      dockerfile: vault-service/Dockerfile
-    container_name: eop-vault
+      dockerfile: wallet-service/Dockerfile
+    container_name: eop-wallet
     restart: unless-stopped
     environment:
       QUARKUS_DATASOURCE_REACTIVE_URL: postgresql://postgres:5432/eyesofpriestess
@@ -121,7 +121,7 @@ services:
       RABBITMQ_PORT: 5672
       RABBITMQ_USERNAME: priestess
       RABBITMQ_PASSWORD: originium_seal
-      SEAL_SERVICE_URL: http://seal-service:8081
+      AUTH_SERVICE_URL: http://auth-service:8081
       XENDIT_API_KEY: ${XENDIT_API_KEY:-xnd_development_REPLACE_ME}
       XENDIT_WEBHOOK_TOKEN: ${XENDIT_WEBHOOK_TOKEN:-xnd_webhook_REPLACE_ME}
       XENDIT_CALLBACK_URL: ${XENDIT_CALLBACK_URL:-https://your-ngrok.ngrok.io}
@@ -139,12 +139,12 @@ services:
     networks:
       - sanctum-network
 
-  # Covenant Sanctum — Escrow Room Engine (port 8083)
-  covenant-service:
+  # Room Service — Escrow Room Engine (port 8083)
+  room-service:
     build:
       context: ./backend
-      dockerfile: covenant-service/Dockerfile
-    container_name: eop-covenant
+      dockerfile: room-service/Dockerfile
+    container_name: eop-room
     restart: unless-stopped
     environment:
       QUARKUS_DATASOURCE_REACTIVE_URL: postgresql://postgres:5432/eyesofpriestess
@@ -155,8 +155,8 @@ services:
       RABBITMQ_PORT: 5672
       RABBITMQ_USERNAME: priestess
       RABBITMQ_PASSWORD: originium_seal
-      SEAL_SERVICE_URL: http://seal-service:8081
-      VAULT_SERVICE_URL: http://vault-service:8082
+      AUTH_SERVICE_URL: http://auth-service:8081
+      WALLET_SERVICE_URL: http://wallet-service:8082
       QUARKUS_HTTP_PORT: 8083
     ports:
       - "8083:8083"
@@ -170,18 +170,18 @@ services:
     networks:
       - sanctum-network
 
-  # Communion Sanctum — Real-time Chat via WebSocket (port 8084)
-  communion-service:
+  # Chat Service — Real-time Chat via WebSocket (port 8084)
+  chat-service:
     build:
       context: ./backend
-      dockerfile: communion-service/Dockerfile
-    container_name: eop-communion
+      dockerfile: chat-service/Dockerfile
+    container_name: eop-chat
     restart: unless-stopped
     environment:
       QUARKUS_DATASOURCE_REACTIVE_URL: postgresql://postgres:5432/eyesofpriestess
       QUARKUS_DATASOURCE_USERNAME: priestess
       QUARKUS_DATASOURCE_PASSWORD: originium_seal
-      SEAL_SERVICE_URL: http://seal-service:8081
+      AUTH_SERVICE_URL: http://auth-service:8081
       QUARKUS_HTTP_PORT: 8084
     ports:
       - "8084:8084"
@@ -191,12 +191,12 @@ services:
     networks:
       - sanctum-network
 
-  # Judgment Sanctum — Dispute Resolution (port 8085)
-  judgment-service:
+  # Dispute Service — Dispute Resolution (port 8085)
+  dispute-service:
     build:
       context: ./backend
-      dockerfile: judgment-service/Dockerfile
-    container_name: eop-judgment
+      dockerfile: dispute-service/Dockerfile
+    container_name: eop-dispute
     restart: unless-stopped
     environment:
       QUARKUS_DATASOURCE_REACTIVE_URL: postgresql://postgres:5432/eyesofpriestess
@@ -206,8 +206,8 @@ services:
       RABBITMQ_PORT: 5672
       RABBITMQ_USERNAME: priestess
       RABBITMQ_PASSWORD: originium_seal
-      SEAL_SERVICE_URL: http://seal-service:8081
-      VAULT_SERVICE_URL: http://vault-service:8082
+      AUTH_SERVICE_URL: http://auth-service:8081
+      WALLET_SERVICE_URL: http://wallet-service:8082
       QUARKUS_HTTP_PORT: 8085
     ports:
       - "8085:8085"
@@ -249,11 +249,11 @@ services:
       timeout: 10s
       retries: 5
     depends_on:
-      - seal-service
-      - vault-service
-      - covenant-service
-      - communion-service
-      - judgment-service
+      - auth-service
+      - wallet-service
+      - room-service
+      - chat-service
+      - dispute-service
     networks:
       - sanctum-network
 

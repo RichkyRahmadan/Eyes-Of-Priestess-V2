@@ -1,42 +1,42 @@
 # ═══════════════════════════════════════════════════════════════════════════════
 # Kong API Gateway — DB-less Declarative Configuration
-# EyesOfPriestess: The Covenant Protocol
+# EyesOfPriestess: API Gateway Configuration
 #
 # Mode: DB-less (no database required for Kong itself)
 # Format: Kong Declarative Config v3.0
 #
 # Routes Architecture:
-#   :8080/api/v1/seal/*       → seal-service:8081
-#   :8080/api/v1/vault/*      → vault-service:8082
-#   :8080/api/v1/covenant/*   → covenant-service:8083
-#   :8080/api/v1/communion/*  → communion-service:8084
-#   :8080/api/v1/judgment/*   → judgment-service:8085
+#   :8080/api/v1/auth/*       → auth-service:8081
+#   :8080/api/v1/wallet/*     → wallet-service:8082
+#   :8080/api/v1/room/*       → room-service:8083
+#   :8080/api/v1/chat/*       → chat-service:8084
+#   :8080/api/v1/dispute/*    → dispute-service:8085
 # ═══════════════════════════════════════════════════════════════════════════════
 _format_version: "3.0"
 _transform: true
 
-# ─── SERVICES (Upstream Sanctums) ─────────────────────────────────────────────
+# ─── SERVICES (Upstream Microservices) ─────────────────────────────────────────
 services:
 
-  # ── Seal Sanctum ────────────────────────────────────────────────────────────
-  - name: seal-service
-    url: http://seal-service:8081
+  # ── Auth Service ────────────────────────────────────────────────────────────
+  - name: auth-service
+    url: http://auth-service:8081
     connect_timeout: 10000
     read_timeout: 30000
     write_timeout: 30000
     routes:
       # Public auth routes — no JWT required
-      - name: seal-public
+      - name: auth-public
         paths:
-          - ~/api/v1/seal/(forge|rite|renew|omen)
+          - ~/api/v1/auth/(login|register|refresh|otp)
         strip_path: false
         methods: [GET, POST, OPTIONS]
         regex_priority: 10
 
-      # Protected profile/session routes
-      - name: seal-protected
+      # Protected auth & profile routes
+      - name: auth-protected
         paths:
-          - /api/v1/seal
+          - /api/v1/auth
         strip_path: false
         methods: [GET, POST, PUT, DELETE, OPTIONS]
         regex_priority: 0
@@ -57,7 +57,6 @@ services:
           headers:
             - Authorization
             - Content-Type
-            - Covenant-Key
             - X-Request-ID
           exposed_headers:
             - X-Request-ID
@@ -78,25 +77,25 @@ services:
           header_name: X-Request-ID
           echo_downstream: true
 
-  # ── Vault Sanctum ────────────────────────────────────────────────────────────
-  - name: vault-service
-    url: http://vault-service:8082
+  # ── Wallet Service ────────────────────────────────────────────────────────────
+  - name: wallet-service
+    url: http://wallet-service:8082
     connect_timeout: 10000
     read_timeout: 60000    # Higher timeout for payment operations
     write_timeout: 60000
     routes:
-      # Xendit webhook — no auth, IP whitelist via Xendit
-      - name: vault-webhook
+      # Payment webhooks — no auth
+      - name: wallet-webhook
         paths:
-          - /api/v1/vault/webhook
+          - /api/v1/wallet/webhook
         strip_path: false
         methods: [POST, OPTIONS]
         regex_priority: 10
 
-      # Treasury & payment routes
-      - name: vault-protected
+      # Wallet & payment routes
+      - name: wallet-protected
         paths:
-          - /api/v1/vault
+          - /api/v1/wallet
         strip_path: false
         methods: [GET, POST, PUT, DELETE, OPTIONS]
         regex_priority: 0
@@ -111,7 +110,6 @@ services:
           headers:
             - Authorization
             - Content-Type
-            - Covenant-Key
             - X-Request-ID
           credentials: true
           max_age: 86400
@@ -129,16 +127,16 @@ services:
           header_name: X-Request-ID
           echo_downstream: true
 
-  # ── Covenant Sanctum ─────────────────────────────────────────────────────────
-  - name: covenant-service
-    url: http://covenant-service:8083
+  # ── Room Service ─────────────────────────────────────────────────────────────
+  - name: room-service
+    url: http://room-service:8083
     connect_timeout: 10000
     read_timeout: 30000
     write_timeout: 30000
     routes:
-      - name: covenant-routes
+      - name: room-routes
         paths:
-          - /api/v1/covenant
+          - /api/v1/room
         strip_path: false
         methods: [GET, POST, PUT, DELETE, PATCH, OPTIONS]
 
@@ -152,7 +150,6 @@ services:
           headers:
             - Authorization
             - Content-Type
-            - Covenant-Key
             - X-Request-ID
           credentials: true
           max_age: 86400
@@ -169,16 +166,16 @@ services:
           header_name: X-Request-ID
           echo_downstream: true
 
-  # ── Communion Sanctum (REST + WebSocket) ─────────────────────────────────────
-  - name: communion-service
-    url: http://communion-service:8084
+  # ── Chat Service (REST + WebSocket) ───────────────────────────────────────────
+  - name: chat-service
+    url: http://chat-service:8084
     connect_timeout: 10000
     read_timeout: 86400000   # 24h for WebSocket keep-alive
     write_timeout: 86400000
     routes:
-      - name: communion-routes
+      - name: chat-routes
         paths:
-          - /api/v1/communion
+          - /api/v1/chat
         strip_path: false
         methods: [GET, POST, OPTIONS]
         protocols: [http, https, ws, wss]   # WebSocket support
@@ -204,16 +201,16 @@ services:
           policy: local
           fault_tolerant: true
 
-  # ── Judgment Sanctum ─────────────────────────────────────────────────────────
-  - name: judgment-service
-    url: http://judgment-service:8085
+  # ── Dispute Service ───────────────────────────────────────────────────────────
+  - name: dispute-service
+    url: http://dispute-service:8085
     connect_timeout: 10000
     read_timeout: 30000
     write_timeout: 30000
     routes:
-      - name: judgment-routes
+      - name: dispute-routes
         paths:
-          - /api/v1/judgment
+          - /api/v1/dispute
         strip_path: false
         methods: [GET, POST, PUT, OPTIONS]
 

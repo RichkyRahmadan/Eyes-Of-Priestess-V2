@@ -11,14 +11,14 @@
     <packaging>pom</packaging>
 
     <name>EyesOfPriestess — Backend Parent</name>
-    <description>The Covenant Protocol — Parent POM for all Five Sanctums + The Veil</description>
+    <description>Parent POM for EyesOfPriestess Microservices</description>
 
     <modules>
-        <module>seal-service</module>
-        <module>vault-service</module>
-        <module>covenant-service</module>
-        <module>communion-service</module>
-        <module>judgment-service</module>
+        <module>auth-service</module>
+        <module>wallet-service</module>
+        <module>room-service</module>
+        <module>chat-service</module>
+        <module>dispute-service</module>
     </modules>
 
     <properties>

@@ -1,7 +1,7 @@
 -- ═══════════════════════════════════════════════════════════════════════════════
--- EyesOfPriestess — The Archives: PostgreSQL Initialization Script
+-- EyesOfPriestess — PostgreSQL Initialization Script
 -- File: 01-init-schemas.sql
--- Description: Create all logical archives (schemas), extensions, and seed data
+-- Description: Create all 5 service domain schemas and tables
 -- Run: Automatically via docker-entrypoint-initdb.d on first postgres startup
 -- ═══════════════════════════════════════════════════════════════════════════════
 
@@ -9,540 +9,413 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
--- ─── ARCHIVES (SCHEMAS) ─────────────────────────────────────────────────────
-CREATE SCHEMA IF NOT EXISTS seal;
-CREATE SCHEMA IF NOT EXISTS vault;
-CREATE SCHEMA IF NOT EXISTS covenant;
-CREATE SCHEMA IF NOT EXISTS communion;
-CREATE SCHEMA IF NOT EXISTS judgment;
+-- ─── DOMAIN SCHEMAS ─────────────────────────────────────────────────────────
+CREATE SCHEMA IF NOT EXISTS auth;
+CREATE SCHEMA IF NOT EXISTS wallet;
+CREATE SCHEMA IF NOT EXISTS room;
+CREATE SCHEMA IF NOT EXISTS chat;
+CREATE SCHEMA IF NOT EXISTS dispute;
 
 -- ═══════════════════════════════════════════════════════════════════════════════
--- SEAL ARCHIVE — Authentication & Identity
+-- AUTH SCHEMA — Authentication & User Identity
 -- ═══════════════════════════════════════════════════════════════════════════════
 
--- ─── seal.pilgrims ──────────────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS seal.pilgrims (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    phone VARCHAR(15) NOT NULL UNIQUE,
-    email VARCHAR(255) UNIQUE,
-    password_hash VARCHAR(255) NOT NULL,
-    pin_hash VARCHAR(255) NOT NULL,
-    full_name VARCHAR(100) NOT NULL,
-    profile_photo_url VARCHAR(500),
-
-    -- Attunement (KYC)
-    attunement_status VARCHAR(20) NOT NULL DEFAULT 'UNATTUNED'
-        CHECK (attunement_status IN ('UNATTUNED', 'PENDING', 'ATTUNED', 'REJECTED')),
-    attunement_id_hash VARCHAR(255),
-    attunement_verified_at TIMESTAMPTZ,
-
-    -- Roles
-    is_oracle BOOLEAN NOT NULL DEFAULT FALSE,
-
-    -- Status & Security
-    status VARCHAR(20) NOT NULL DEFAULT 'ATTUNED'
-        CHECK (status IN ('ATTUNED', 'SUSPENDED', 'SANCTIONED')),
-    pin_failed_attempts INT NOT NULL DEFAULT 0,
-    pin_locked_until TIMESTAMPTZ,
-    login_failed_attempts INT NOT NULL DEFAULT 0,
-    login_locked_until TIMESTAMPTZ,
-
-    -- Covenant Metrics
-    covenant_score DECIMAL(2,1) NOT NULL DEFAULT 5.0
-        CHECK (covenant_score >= 0.0 AND covenant_score <= 5.0),
-    total_covenants INT NOT NULL DEFAULT 0,
-    fulfilled_covenants INT NOT NULL DEFAULT 0,
-    judgment_count INT NOT NULL DEFAULT 0,
-
-    -- Timestamps
-    attuned_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    last_rite_at TIMESTAMPTZ,
-
-    CONSTRAINT valid_phone CHECK (phone ~ '^\+?[0-9]{10,15}$')
+CREATE TABLE IF NOT EXISTS auth.users (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email               VARCHAR(255) NOT NULL UNIQUE,
+    username            VARCHAR(50) NOT NULL UNIQUE,
+    full_name           VARCHAR(100) NOT NULL,
+    phone_number        VARCHAR(20) UNIQUE,
+    role                VARCHAR(20) NOT NULL DEFAULT 'USER' CHECK (role IN ('USER', 'ADMIN', 'MODERATOR')),
+    is_verified         BOOLEAN NOT NULL DEFAULT FALSE,
+    is_pin_set          BOOLEAN NOT NULL DEFAULT FALSE,
+    avatar_url          VARCHAR(500),
+    ktp_number          VARCHAR(16),
+    ktp_image_url       VARCHAR(500),
+    is_ktp_verified     BOOLEAN DEFAULT FALSE,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted_at          TIMESTAMPTZ
 );
 
-CREATE INDEX IF NOT EXISTS idx_pilgrims_phone ON seal.pilgrims(phone);
-CREATE INDEX IF NOT EXISTS idx_pilgrims_status ON seal.pilgrims(status);
-CREATE INDEX IF NOT EXISTS idx_pilgrims_attunement ON seal.pilgrims(attunement_status);
+CREATE INDEX IF NOT EXISTS idx_users_email ON auth.users(email);
+CREATE INDEX IF NOT EXISTS idx_users_username ON auth.users(username);
+CREATE INDEX IF NOT EXISTS idx_users_role ON auth.users(role);
 
--- updated_at trigger for pilgrims
-CREATE OR REPLACE FUNCTION seal.fn_update_updated_at()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = NOW();
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trg_pilgrims_updated_at
-    BEFORE UPDATE ON seal.pilgrims
-    FOR EACH ROW EXECUTE FUNCTION seal.fn_update_updated_at();
-
--- ─── seal.sessions ──────────────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS seal.sessions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    pilgrim_id UUID NOT NULL REFERENCES seal.pilgrims(id) ON DELETE CASCADE,
-    refresh_seal_jti VARCHAR(255) NOT NULL UNIQUE,
-    device_id VARCHAR(255),
-    device_info JSONB,
-    expires_at TIMESTAMPTZ NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    severed_at TIMESTAMPTZ,
-    severed_reason VARCHAR(50)  -- SEVERED | SANCTIONED | PASSWORD_CHANGED
+CREATE TABLE IF NOT EXISTS auth.credentials (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id             UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    password_hash       VARCHAR(255) NOT NULL,
+    pin_hash            VARCHAR(255),
+    pin_set_at          TIMESTAMPTZ,
+    pin_change_required BOOLEAN DEFAULT FALSE,
+    failed_pin_attempts INT NOT NULL DEFAULT 0,
+    pin_locked_until    TIMESTAMPTZ,
+    last_login_at       TIMESTAMPTZ,
+    last_login_ip       INET,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_sessions_pilgrim ON seal.sessions(pilgrim_id);
-CREATE INDEX IF NOT EXISTS idx_sessions_jti ON seal.sessions(refresh_seal_jti);
-CREATE INDEX IF NOT EXISTS idx_sessions_expires ON seal.sessions(expires_at);
-CREATE INDEX IF NOT EXISTS idx_sessions_severed ON seal.sessions(severed_at);
+CREATE INDEX IF NOT EXISTS idx_credentials_user_id ON auth.credentials(user_id);
 
--- ─── seal.sanction_records ──────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS seal.sanction_records (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    pilgrim_id UUID NOT NULL REFERENCES seal.pilgrims(id) ON DELETE CASCADE,
-    sanctioned_by UUID REFERENCES seal.pilgrims(id),
-    reason VARCHAR(50) NOT NULL
-        CHECK (reason IN ('FRAUDULENT_ACTIVITY', 'SPAM', 'HARASSMENT', 'TERMS_VIOLATION', 'OTHER')),
-    description TEXT,
-    sanction_duration VARCHAR(20) NOT NULL
-        CHECK (sanction_duration IN ('TEMPORARY', 'ETERNAL')),
-    sanctioned_until TIMESTAMPTZ,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    revoked_at TIMESTAMPTZ,
-    revoked_by UUID REFERENCES seal.pilgrims(id)
+CREATE TABLE IF NOT EXISTS auth.refresh_tokens (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id             UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    token_hash          VARCHAR(255) NOT NULL,
+    device_info         VARCHAR(255),
+    ip_address          INET,
+    expires_at          TIMESTAMPTZ NOT NULL,
+    revoked_at          TIMESTAMPTZ,
+    replaced_by         UUID REFERENCES auth.refresh_tokens(id),
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_sanction_records_pilgrim ON seal.sanction_records(pilgrim_id);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user_id ON auth.refresh_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_token_hash ON auth.refresh_tokens(token_hash);
+
+CREATE TABLE IF NOT EXISTS auth.pin_history (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id             UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    pin_hash            VARCHAR(255) NOT NULL,
+    changed_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    changed_reason      VARCHAR(50) NOT NULL DEFAULT 'USER_INITIATED' CHECK (changed_reason IN ('USER_INITIATED', 'ADMIN_RESET', 'SECURITY_BREACH'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_pin_history_user_id ON auth.pin_history(user_id);
+
+CREATE TABLE IF NOT EXISTS auth.ban_logs (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id             UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    banned_by           UUID NOT NULL REFERENCES auth.users(id),
+    ban_type            VARCHAR(20) NOT NULL CHECK (ban_type IN ('FULL', 'TRANSACTION_ONLY', 'ROOM_ONLY')),
+    reason              TEXT NOT NULL,
+    duration            VARCHAR(20) NOT NULL CHECK (duration IN ('PERMANENT', 'TEMPORARY')),
+    duration_hours      INT,
+    banned_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    expires_at          TIMESTAMPTZ,
+    unbanned_by         UUID REFERENCES auth.users(id),
+    unbanned_at         TIMESTAMPTZ,
+    unban_reason        TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_ban_logs_user_id ON auth.ban_logs(user_id);
 
 -- ═══════════════════════════════════════════════════════════════════════════════
--- VAULT ARCHIVE — Treasury & Payments
+-- WALLET SCHEMA — E-Wallet & Transactions
 -- ═══════════════════════════════════════════════════════════════════════════════
 
--- ─── vault.treasuries ───────────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS vault.treasuries (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    pilgrim_id UUID NOT NULL UNIQUE REFERENCES seal.pilgrims(id) ON DELETE CASCADE,
-    available_treasury DECIMAL(15,2) NOT NULL DEFAULT 0.00
-        CHECK (available_treasury >= 0),
-    sealed_treasury DECIMAL(15,2) NOT NULL DEFAULT 0.00
-        CHECK (sealed_treasury >= 0),
-    total_offered DECIMAL(15,2) NOT NULL DEFAULT 0.00,
-    total_withdrawn DECIMAL(15,2) NOT NULL DEFAULT 0.00,
-    status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE'
-        CHECK (status IN ('ACTIVE', 'FROZEN', 'SUSPENDED')),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    version BIGINT NOT NULL DEFAULT 0  -- optimistic lock
+CREATE TABLE IF NOT EXISTS wallet.wallets (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id             UUID NOT NULL UNIQUE REFERENCES auth.users(id),
+    available_balance   BIGINT NOT NULL DEFAULT 0,
+    escrow_balance      BIGINT NOT NULL DEFAULT 0,
+    currency            VARCHAR(3) NOT NULL DEFAULT 'IDR',
+    is_active           BOOLEAN NOT NULL DEFAULT TRUE,
+    frozen_at           TIMESTAMPTZ,
+    freeze_reason       TEXT,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_treasuries_pilgrim ON vault.treasuries(pilgrim_id);
-CREATE INDEX IF NOT EXISTS idx_treasuries_status ON vault.treasuries(status);
+CREATE INDEX IF NOT EXISTS idx_wallets_user_id ON wallet.wallets(user_id);
 
-CREATE OR REPLACE FUNCTION vault.fn_update_updated_at()
-RETURNS TRIGGER AS $$
-BEGIN NEW.updated_at = NOW(); RETURN NEW; END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trg_treasuries_updated_at
-    BEFORE UPDATE ON vault.treasuries
-    FOR EACH ROW EXECUTE FUNCTION vault.fn_update_updated_at();
-
--- ─── vault.chronicles ───────────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS vault.chronicles (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    treasury_id UUID NOT NULL REFERENCES vault.treasuries(id) ON DELETE CASCADE,
-    type VARCHAR(30) NOT NULL
-        CHECK (type IN ('OFFERING', 'WITHDRAWAL', 'TITHING_IN', 'TITHING_OUT',
-                        'SEAL_HOLD', 'SEAL_RELEASE', 'SEAL_REFUND', 'TITHE')),
-    amount DECIMAL(15,2) NOT NULL,
-    tithe DECIMAL(15,2) NOT NULL DEFAULT 0.00,
-    net_amount DECIMAL(15,2) NOT NULL,
-    status VARCHAR(20) NOT NULL DEFAULT 'PENDING'
-        CHECK (status IN ('PENDING', 'PROCESSING', 'COMPLETED', 'FAILED', 'CANCELLED')),
-    reference_id VARCHAR(100),
-    reference_type VARCHAR(30),
-    counterparty_treasury_id UUID REFERENCES vault.treasuries(id),
-    counterparty_name VARCHAR(100),
-    description VARCHAR(255),
-    metadata JSONB,
-    treasury_before DECIMAL(15,2) NOT NULL,
-    treasury_after DECIMAL(15,2) NOT NULL,
-    covenant_key VARCHAR(100) UNIQUE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    completed_at TIMESTAMPTZ,
-    CONSTRAINT valid_amount CHECK (amount != 0)
+CREATE TABLE IF NOT EXISTS wallet.bank_accounts (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id             UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    bank_code           VARCHAR(20) NOT NULL,
+    bank_name           VARCHAR(100) NOT NULL,
+    account_number      VARCHAR(50) NOT NULL,
+    account_holder_name VARCHAR(100) NOT NULL,
+    is_primary          BOOLEAN NOT NULL DEFAULT FALSE,
+    is_verified         BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted_at          TIMESTAMPTZ,
+    UNIQUE(user_id, account_number, bank_code)
 );
 
-CREATE INDEX IF NOT EXISTS idx_chronicles_treasury ON vault.chronicles(treasury_id);
-CREATE INDEX IF NOT EXISTS idx_chronicles_type ON vault.chronicles(type);
-CREATE INDEX IF NOT EXISTS idx_chronicles_status ON vault.chronicles(status);
-CREATE INDEX IF NOT EXISTS idx_chronicles_created ON vault.chronicles(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_chronicles_reference ON vault.chronicles(reference_id);
-CREATE INDEX IF NOT EXISTS idx_chronicles_covenant_key ON vault.chronicles(covenant_key);
+CREATE INDEX IF NOT EXISTS idx_bank_accounts_user_id ON wallet.bank_accounts(user_id);
 
--- ─── vault.offerings ────────────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS vault.offerings (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    treasury_id UUID NOT NULL REFERENCES vault.treasuries(id) ON DELETE CASCADE,
-    amount DECIMAL(15,2) NOT NULL CHECK (amount > 0),
-    tithe DECIMAL(15,2) NOT NULL DEFAULT 0.00,
-    gateway VARCHAR(20) NOT NULL
-        CHECK (gateway IN ('MIDTRANS', 'XENDIT', 'MANUAL')),
-    gateway_transaction_id VARCHAR(255),
-    payment_method VARCHAR(30) NOT NULL
-        CHECK (payment_method IN ('VIRTUAL_ACCOUNT', 'E_WALLET', 'BANK_TRANSFER', 'QRIS')),
-    payment_details JSONB,
-    status VARCHAR(20) NOT NULL DEFAULT 'PENDING'
-        CHECK (status IN ('PENDING', 'ACCEPTED', 'EXPIRED', 'CANCELLED', 'FAILED')),
-    expires_at TIMESTAMPTZ,
-    accepted_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    covenant_key VARCHAR(100) UNIQUE
+CREATE TABLE IF NOT EXISTS wallet.transactions (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    wallet_id           UUID NOT NULL REFERENCES wallet.wallets(id),
+    type                VARCHAR(30) NOT NULL CHECK (type IN ('TOPUP', 'WITHDRAW', 'P2P_TRANSFER', 'ESCROW_HOLD', 'ESCROW_RELEASE', 'ESCROW_REFUND', 'FEE', 'ADJUSTMENT')),
+    direction           VARCHAR(10) NOT NULL CHECK (direction IN ('IN', 'OUT', 'NEUTRAL')),
+    amount              BIGINT NOT NULL,
+    fee                 BIGINT NOT NULL DEFAULT 0,
+    net_amount          BIGINT NOT NULL,
+    status              VARCHAR(20) NOT NULL CHECK (status IN ('PENDING', 'SUCCESS', 'FAILED', 'CANCELLED')) DEFAULT 'PENDING',
+    description         VARCHAR(255),
+    counterparty_wallet_id UUID REFERENCES wallet.wallets(id),
+    counterparty_name   VARCHAR(100),
+    room_id             UUID,
+    reference_id        VARCHAR(100),
+    metadata            JSONB,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    settled_at          TIMESTAMPTZ,
+    failed_at           TIMESTAMPTZ,
+    fail_reason         TEXT
 );
 
-CREATE INDEX IF NOT EXISTS idx_offerings_treasury ON vault.offerings(treasury_id);
-CREATE INDEX IF NOT EXISTS idx_offerings_status ON vault.offerings(status);
-CREATE INDEX IF NOT EXISTS idx_offerings_gateway ON vault.offerings(gateway_transaction_id);
+CREATE INDEX IF NOT EXISTS idx_transactions_wallet_id ON wallet.transactions(wallet_id);
+CREATE INDEX IF NOT EXISTS idx_transactions_type ON wallet.transactions(type);
+CREATE INDEX IF NOT EXISTS idx_transactions_status ON wallet.transactions(status);
+CREATE INDEX IF NOT EXISTS idx_transactions_created_at ON wallet.transactions(created_at DESC);
 
--- ─── vault.withdrawals ──────────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS vault.withdrawals (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    treasury_id UUID NOT NULL REFERENCES vault.treasuries(id) ON DELETE CASCADE,
-    amount DECIMAL(15,2) NOT NULL CHECK (amount > 0),
-    tithe DECIMAL(15,2) NOT NULL DEFAULT 0.00,
-    net_amount DECIMAL(15,2) NOT NULL,
-    bank_code VARCHAR(20) NOT NULL,
-    bank_name VARCHAR(100) NOT NULL,
-    account_number_hash VARCHAR(255) NOT NULL,
-    account_number_masked VARCHAR(20) NOT NULL,
-    account_name VARCHAR(100) NOT NULL,
-    status VARCHAR(20) NOT NULL DEFAULT 'PENDING'
-        CHECK (status IN ('PENDING', 'PROCESSING', 'COMPLETED', 'FAILED')),
-    gateway VARCHAR(20),
-    gateway_transaction_id VARCHAR(255),
-    processed_at TIMESTAMPTZ,
-    completed_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    covenant_key VARCHAR(100) UNIQUE
+CREATE TABLE IF NOT EXISTS wallet.topup_orders (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    wallet_id           UUID NOT NULL REFERENCES wallet.wallets(id),
+    amount              BIGINT NOT NULL,
+    fee                 BIGINT NOT NULL DEFAULT 0,
+    method              VARCHAR(30) NOT NULL CHECK (method IN ('VIRTUAL_ACCOUNT', 'E_WALLET', 'RETAIL', 'BANK_TRANSFER')),
+    bank_code           VARCHAR(20),
+    ewallet_type        VARCHAR(20),
+    virtual_account_number VARCHAR(50),
+    qr_string           TEXT,
+    status              VARCHAR(20) NOT NULL CHECK (status IN ('PENDING', 'PAID', 'SUCCESS', 'FAILED', 'EXPIRED')) DEFAULT 'PENDING',
+    payment_gateway_ref VARCHAR(100),
+    paid_at             TIMESTAMPTZ,
+    settled_at          TIMESTAMPTZ,
+    expires_at          TIMESTAMPTZ NOT NULL,
+    metadata            JSONB,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_withdrawals_treasury ON vault.withdrawals(treasury_id);
-CREATE INDEX IF NOT EXISTS idx_withdrawals_status ON vault.withdrawals(status);
+CREATE INDEX IF NOT EXISTS idx_topup_wallet_id ON wallet.topup_orders(wallet_id);
 
--- ─── vault.bank_accounts ────────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS vault.bank_accounts (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    treasury_id UUID NOT NULL REFERENCES vault.treasuries(id) ON DELETE CASCADE,
-    bank_code VARCHAR(20) NOT NULL,
-    bank_name VARCHAR(100) NOT NULL,
-    account_number_hash VARCHAR(255) NOT NULL,
-    account_number_masked VARCHAR(20) NOT NULL,
-    account_name VARCHAR(100) NOT NULL,
-    is_primary BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT unique_bank_account UNIQUE (treasury_id, bank_code, account_number_hash)
+CREATE TABLE IF NOT EXISTS wallet.withdraw_requests (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    wallet_id           UUID NOT NULL REFERENCES wallet.wallets(id),
+    bank_account_id     UUID NOT NULL REFERENCES wallet.bank_accounts(id),
+    amount              BIGINT NOT NULL,
+    fee                 BIGINT NOT NULL DEFAULT 0,
+    net_amount          BIGINT NOT NULL,
+    status              VARCHAR(20) NOT NULL CHECK (status IN ('PENDING', 'PROCESSING', 'SUCCESS', 'FAILED')) DEFAULT 'PENDING',
+    processed_at        TIMESTAMPTZ,
+    processed_by        UUID,
+    failure_reason      TEXT,
+    estimated_arrival   TIMESTAMPTZ,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_bank_accounts_treasury ON vault.bank_accounts(treasury_id);
+CREATE INDEX IF NOT EXISTS idx_withdraw_wallet_id ON wallet.withdraw_requests(wallet_id);
 
 -- ═══════════════════════════════════════════════════════════════════════════════
--- COVENANT ARCHIVE — Escrow Room Engine
+-- ROOM SCHEMA — Escrow Rooms Engine
 -- ═══════════════════════════════════════════════════════════════════════════════
 
--- ─── covenant.covenants ─────────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS covenant.covenants (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    covenant_code VARCHAR(10) NOT NULL UNIQUE,   -- e.g., CVN-8X2K9
-
-    initiator_id UUID NOT NULL REFERENCES seal.pilgrims(id),
-    counterpart_id UUID NOT NULL REFERENCES seal.pilgrims(id),
-
-    item_name VARCHAR(200) NOT NULL,
-    item_description TEXT,
-    category VARCHAR(20) NOT NULL
-        CHECK (category IN ('GAME', 'MARKETPLACE', 'SERVICE')),
-
-    amount DECIMAL(12,2) NOT NULL CHECK (amount > 0),
-    tithe DECIMAL(12,2) NOT NULL DEFAULT 0.00,
-    tithe_percentage DECIMAL(5,2) NOT NULL DEFAULT 1.00,
-
-    status VARCHAR(20) NOT NULL DEFAULT 'FORGED'
-        CHECK (status IN ('FORGED', 'ACCEPTED', 'DELIVERED', 'FULFILLED',
-                          'JUDGMENT', 'BROKEN', 'EXPIRED')),
-
-    deadline_hours INT NOT NULL DEFAULT 72 CHECK (deadline_hours > 0 AND deadline_hours <= 168),
-    deadline_at TIMESTAMPTZ NOT NULL,
-
-    accepted_at TIMESTAMPTZ,
-    delivered_at TIMESTAMPTZ,
-    fulfilled_at TIMESTAMPTZ,
-    broken_at TIMESTAMPTZ,
-    expired_at TIMESTAMPTZ,
-    judgment_at TIMESTAMPTZ,
-
-    initiator_rating INT CHECK (initiator_rating >= 1 AND initiator_rating <= 5),
-    initiator_review TEXT,
-    counterpart_rating INT CHECK (counterpart_rating >= 1 AND counterpart_rating <= 5),
-    counterpart_review TEXT,
-
-    broken_by UUID REFERENCES seal.pilgrims(id),
-    break_reason VARCHAR(50),
-
-    metadata JSONB,
-
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    version BIGINT NOT NULL DEFAULT 0
+CREATE TABLE IF NOT EXISTS room.rooms (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    room_code           VARCHAR(20) NOT NULL UNIQUE,
+    title               VARCHAR(200) NOT NULL,
+    description         TEXT,
+    item_category       VARCHAR(50) NOT NULL CHECK (item_category IN ('GAME_ACCOUNT', 'GAME_ITEM', 'DIGITAL_PRODUCT', 'PHYSICAL_PRODUCT', 'SERVICE', 'OTHER')),
+    item_price          BIGINT NOT NULL,
+    fee                 BIGINT NOT NULL DEFAULT 0,
+    total_amount        BIGINT NOT NULL,
+    status              VARCHAR(20) NOT NULL CHECK (status IN ('WAITING_PAYMENT', 'FUNDED', 'DELIVERED', 'COMPLETED', 'DISPUTED', 'CANCELLED', 'REFUNDED')) DEFAULT 'WAITING_PAYMENT',
+    buyer_id            UUID NOT NULL REFERENCES auth.users(id),
+    seller_id           UUID NOT NULL REFERENCES auth.users(id),
+    funded_at           TIMESTAMPTZ,
+    delivered_at        TIMESTAMPTZ,
+    completed_at        TIMESTAMPTZ,
+    cancelled_at        TIMESTAMPTZ,
+    disputed_at         TIMESTAMPTZ,
+    refunded_at         TIMESTAMPTZ,
+    auto_release_hours  INT NOT NULL DEFAULT 24,
+    auto_release_at     TIMESTAMPTZ,
+    chat_room_id        UUID,
+    dispute_id          UUID,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT different_buyer_seller CHECK (buyer_id != seller_id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_covenants_initiator ON covenant.covenants(initiator_id);
-CREATE INDEX IF NOT EXISTS idx_covenants_counterpart ON covenant.covenants(counterpart_id);
-CREATE INDEX IF NOT EXISTS idx_covenants_status ON covenant.covenants(status);
-CREATE INDEX IF NOT EXISTS idx_covenants_code ON covenant.covenants(covenant_code);
-CREATE INDEX IF NOT EXISTS idx_covenants_deadline ON covenant.covenants(deadline_at);
-CREATE INDEX IF NOT EXISTS idx_covenants_created ON covenant.covenants(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_rooms_buyer_id ON room.rooms(buyer_id);
+CREATE INDEX IF NOT EXISTS idx_rooms_seller_id ON room.rooms(seller_id);
+CREATE INDEX IF NOT EXISTS idx_rooms_status ON room.rooms(status);
+CREATE INDEX IF NOT EXISTS idx_rooms_room_code ON room.rooms(room_code);
 
-CREATE OR REPLACE FUNCTION covenant.fn_update_updated_at()
-RETURNS TRIGGER AS $$
-BEGIN NEW.updated_at = NOW(); RETURN NEW; END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trg_covenants_updated_at
-    BEFORE UPDATE ON covenant.covenants
-    FOR EACH ROW EXECUTE FUNCTION covenant.fn_update_updated_at();
-
--- ─── covenant.escrow_seals ──────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS covenant.escrow_seals (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    covenant_id UUID NOT NULL UNIQUE REFERENCES covenant.covenants(id) ON DELETE CASCADE,
-    treasury_id UUID NOT NULL REFERENCES vault.treasuries(id),
-    amount DECIMAL(12,2) NOT NULL CHECK (amount > 0),
-    status VARCHAR(20) NOT NULL DEFAULT 'SEALED'
-        CHECK (status IN ('SEALED', 'RELEASED', 'REFUNDED', 'FROZEN')),
-    sealed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    released_at TIMESTAMPTZ,
-    refunded_at TIMESTAMPTZ,
-    released_to_treasury_id UUID REFERENCES vault.treasuries(id),
-    release_chronicle_id UUID REFERENCES vault.chronicles(id),
-    refund_chronicle_id UUID REFERENCES vault.chronicles(id)
+CREATE TABLE IF NOT EXISTS room.room_participants (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    room_id             UUID NOT NULL REFERENCES room.rooms(id) ON DELETE CASCADE,
+    user_id             UUID NOT NULL REFERENCES auth.users(id),
+    role                VARCHAR(20) NOT NULL CHECK (role IN ('BUYER', 'SELLER')),
+    joined_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    left_at             TIMESTAMPTZ,
+    UNIQUE(room_id, user_id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_escrow_seals_covenant ON covenant.escrow_seals(covenant_id);
-CREATE INDEX IF NOT EXISTS idx_escrow_seals_treasury ON covenant.escrow_seals(treasury_id);
-CREATE INDEX IF NOT EXISTS idx_escrow_seals_status ON covenant.escrow_seals(status);
-
--- ─── covenant.covenant_events ───────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS covenant.covenant_events (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    covenant_id UUID NOT NULL REFERENCES covenant.covenants(id) ON DELETE CASCADE,
-    event_type VARCHAR(30) NOT NULL
-        CHECK (event_type IN ('FORGED', 'ACCEPTED', 'REJECTED', 'DELIVERED',
-                              'CONFIRMED', 'BROKEN', 'EXPIRED', 'JUDGMENT',
-                              'AUTO_RELEASED', 'TREASURY_RELEASED', 'TREASURY_REFUNDED')),
-    actor_id UUID NOT NULL REFERENCES seal.pilgrims(id),
-    actor_role VARCHAR(10) NOT NULL
-        CHECK (actor_role IN ('INITIATOR', 'COUNTERPART', 'SYSTEM', 'ORACLE')),
-    previous_status VARCHAR(20),
-    new_status VARCHAR(20),
-    notes TEXT,
-    metadata JSONB,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+CREATE TABLE IF NOT EXISTS room.delivery_proofs (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    room_id             UUID NOT NULL REFERENCES room.rooms(id) ON DELETE CASCADE,
+    uploaded_by         UUID NOT NULL REFERENCES auth.users(id),
+    proof_type          VARCHAR(20) NOT NULL CHECK (proof_type IN ('IMAGE', 'VIDEO', 'DOCUMENT', 'LINK')),
+    proof_url           VARCHAR(500) NOT NULL,
+    thumbnail_url       VARCHAR(500),
+    description         TEXT,
+    uploaded_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_covenant_events_covenant ON covenant.covenant_events(covenant_id);
-CREATE INDEX IF NOT EXISTS idx_covenant_events_type ON covenant.covenant_events(event_type);
-CREATE INDEX IF NOT EXISTS idx_covenant_events_created ON covenant.covenant_events(created_at);
-
--- ─── covenant.covenant_proofs ───────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS covenant.covenant_proofs (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    covenant_id UUID NOT NULL REFERENCES covenant.covenants(id) ON DELETE CASCADE,
-    uploaded_by UUID NOT NULL REFERENCES seal.pilgrims(id),
-    proof_type VARCHAR(20) NOT NULL
-        CHECK (proof_type IN ('DELIVERY', 'EVIDENCE', 'JUDGMENT')),
-    file_url VARCHAR(500) NOT NULL,
-    file_name VARCHAR(255),
-    file_size INT,
-    mime_type VARCHAR(50),
-    description TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+CREATE TABLE IF NOT EXISTS room.escrow_snapshots (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    room_id             UUID NOT NULL REFERENCES room.rooms(id) ON DELETE CASCADE,
+    transaction_id      UUID NOT NULL REFERENCES wallet.transactions(id),
+    amount_held         BIGINT NOT NULL,
+    fee_deducted        BIGINT NOT NULL DEFAULT 0,
+    status_at_snapshot  VARCHAR(20) NOT NULL,
+    snapshot_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_covenant_proofs_covenant ON covenant.covenant_proofs(covenant_id);
-CREATE INDEX IF NOT EXISTS idx_covenant_proofs_type ON covenant.covenant_proofs(proof_type);
-
--- ═══════════════════════════════════════════════════════════════════════════════
--- COMMUNION ARCHIVE — Real-time Chat
--- ═══════════════════════════════════════════════════════════════════════════════
-
--- ─── communion.messages ─────────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS communion.messages (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    covenant_id UUID NOT NULL REFERENCES covenant.covenants(id) ON DELETE CASCADE,
-    sender_id UUID NOT NULL REFERENCES seal.pilgrims(id),
-    message TEXT NOT NULL,
-    message_type VARCHAR(20) NOT NULL DEFAULT 'TEXT'
-        CHECK (message_type IN ('TEXT', 'IMAGE', 'FILE', 'SYSTEM')),
-    file_url VARCHAR(500),
-    file_name VARCHAR(255),
-    file_size INT,
-    system_event_type VARCHAR(30),
-    system_metadata JSONB,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+CREATE TABLE IF NOT EXISTS room.room_reviews (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    room_id             UUID NOT NULL UNIQUE REFERENCES room.rooms(id),
+    reviewer_id         UUID NOT NULL REFERENCES auth.users(id),
+    reviewee_id         UUID NOT NULL REFERENCES auth.users(id),
+    rating              INT NOT NULL CHECK (rating BETWEEN 1 AND 5),
+    comment             TEXT,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_messages_covenant ON communion.messages(covenant_id);
-CREATE INDEX IF NOT EXISTS idx_messages_sender ON communion.messages(sender_id);
-CREATE INDEX IF NOT EXISTS idx_messages_created ON communion.messages(created_at DESC);
-
--- ─── communion.message_reads ────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS communion.message_reads (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    message_id UUID NOT NULL REFERENCES communion.messages(id) ON DELETE CASCADE,
-    pilgrim_id UUID NOT NULL REFERENCES seal.pilgrims(id),
-    read_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT unique_message_read UNIQUE (message_id, pilgrim_id)
+CREATE TABLE IF NOT EXISTS room.room_timeline (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    room_id             UUID NOT NULL REFERENCES room.rooms(id) ON DELETE CASCADE,
+    status              VARCHAR(20) NOT NULL,
+    actor_id            UUID REFERENCES auth.users(id),
+    actor_name          VARCHAR(100),
+    notes               TEXT,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_message_reads_message ON communion.message_reads(message_id);
-CREATE INDEX IF NOT EXISTS idx_message_reads_pilgrim ON communion.message_reads(pilgrim_id);
-
 -- ═══════════════════════════════════════════════════════════════════════════════
--- JUDGMENT ARCHIVE — Dispute Resolution
+-- CHAT SCHEMA — Real-time Messaging
 -- ═══════════════════════════════════════════════════════════════════════════════
 
--- ─── judgment.judgments ─────────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS judgment.judgments (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    covenant_id UUID NOT NULL UNIQUE REFERENCES covenant.covenants(id) ON DELETE CASCADE,
-    raised_by UUID NOT NULL REFERENCES seal.pilgrims(id),
-    respondent_id UUID NOT NULL REFERENCES seal.pilgrims(id),
-    reason VARCHAR(30) NOT NULL
-        CHECK (reason IN ('ITEM_NOT_AS_DESCRIBED', 'NOT_DELIVERED', 'OTHER')),
-    description TEXT NOT NULL,
-    status VARCHAR(20) NOT NULL DEFAULT 'OPEN'
-        CHECK (status IN ('OPEN', 'UNDER_REVIEW', 'RESOLVED', 'REJECTED')),
-    resolution VARCHAR(30)
-        CHECK (resolution IN ('RELEASE_TO_COUNTERPART', 'REFUND_TO_INITIATOR', 'SPLIT')),
-    split_amount DECIMAL(12,2),
-    assigned_oracle_id UUID REFERENCES seal.pilgrims(id),
-    oracle_notes TEXT,
-    reviewed_at TIMESTAMPTZ,
-    resolved_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+CREATE TABLE IF NOT EXISTS chat.chat_rooms (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    escrow_room_id      UUID UNIQUE REFERENCES room.rooms(id),
+    room_name           VARCHAR(200) NOT NULL,
+    room_code           VARCHAR(20) NOT NULL,
+    created_by          UUID NOT NULL REFERENCES auth.users(id),
+    is_active           BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_judgments_covenant ON judgment.judgments(covenant_id);
-CREATE INDEX IF NOT EXISTS idx_judgments_status ON judgment.judgments(status);
-CREATE INDEX IF NOT EXISTS idx_judgments_raised_by ON judgment.judgments(raised_by);
-CREATE INDEX IF NOT EXISTS idx_judgments_oracle ON judgment.judgments(assigned_oracle_id);
-
-CREATE OR REPLACE FUNCTION judgment.fn_update_updated_at()
-RETURNS TRIGGER AS $$
-BEGIN NEW.updated_at = NOW(); RETURN NEW; END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trg_judgments_updated_at
-    BEFORE UPDATE ON judgment.judgments
-    FOR EACH ROW EXECUTE FUNCTION judgment.fn_update_updated_at();
-
--- ─── judgment.judgment_evidence ─────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS judgment.judgment_evidence (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    judgment_id UUID NOT NULL REFERENCES judgment.judgments(id) ON DELETE CASCADE,
-    uploaded_by UUID NOT NULL REFERENCES seal.pilgrims(id),
-    evidence_type VARCHAR(20) NOT NULL
-        CHECK (evidence_type IN ('PHOTO', 'SCREENSHOT', 'COMMUNION_LOG', 'VIDEO', 'DOCUMENT', 'OTHER')),
-    file_url VARCHAR(500) NOT NULL,
-    file_name VARCHAR(255),
-    description TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+CREATE TABLE IF NOT EXISTS chat.chat_participants (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    chat_room_id        UUID NOT NULL REFERENCES chat.chat_rooms(id) ON DELETE CASCADE,
+    user_id             UUID NOT NULL REFERENCES auth.users(id),
+    joined_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    last_read_at        TIMESTAMPTZ,
+    is_typing           BOOLEAN NOT NULL DEFAULT FALSE,
+    UNIQUE(chat_room_id, user_id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_judgment_evidence_judgment ON judgment.judgment_evidence(judgment_id);
+CREATE TABLE IF NOT EXISTS chat.messages (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    chat_room_id        UUID NOT NULL REFERENCES chat.chat_rooms(id) ON DELETE CASCADE,
+    sender_id           UUID NOT NULL REFERENCES auth.users(id),
+    content             TEXT NOT NULL,
+    message_type        VARCHAR(20) NOT NULL CHECK (message_type IN ('TEXT', 'IMAGE', 'FILE', 'SYSTEM', 'ESCROW_STATUS')) DEFAULT 'TEXT',
+    file_url            VARCHAR(500),
+    file_name           VARCHAR(255),
+    file_size           BIGINT,
+    reply_to_id         UUID REFERENCES chat.messages(id),
+    is_edited           BOOLEAN NOT NULL DEFAULT FALSE,
+    edited_at           TIMESTAMPTZ,
+    deleted_at          TIMESTAMPTZ,
+    sent_at             TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_messages_chat_room_id ON chat.messages(chat_room_id);
+
+CREATE TABLE IF NOT EXISTS chat.message_reactions (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    message_id          UUID NOT NULL REFERENCES chat.messages(id) ON DELETE CASCADE,
+    user_id             UUID NOT NULL REFERENCES auth.users(id),
+    reaction            VARCHAR(20) NOT NULL,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(message_id, user_id, reaction)
+);
 
 -- ═══════════════════════════════════════════════════════════════════════════════
--- VIEWS — The Oracle's Gaze
+-- DISPUTE SCHEMA — Arbitration & Evidence
 -- ═══════════════════════════════════════════════════════════════════════════════
 
-CREATE OR REPLACE VIEW seal.pilgrim_observatory AS
-SELECT
-    p.id,
-    p.phone,
-    p.full_name,
-    p.profile_photo_url,
-    p.attunement_status,
-    p.covenant_score,
-    p.is_oracle,
-    t.available_treasury,
-    t.sealed_treasury,
-    (t.available_treasury + t.sealed_treasury) AS total_treasury,
-    p.total_covenants,
-    p.fulfilled_covenants,
-    p.judgment_count,
-    p.status AS pilgrim_status,
-    p.attuned_at
-FROM seal.pilgrims p
-LEFT JOIN vault.treasuries t ON t.pilgrim_id = p.id;
+CREATE TABLE IF NOT EXISTS dispute.disputes (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    room_id             UUID NOT NULL REFERENCES room.rooms(id),
+    initiated_by        UUID NOT NULL REFERENCES auth.users(id),
+    initiator_role      VARCHAR(10) NOT NULL CHECK (initiator_role IN ('BUYER', 'SELLER')),
+    title               VARCHAR(200) NOT NULL,
+    description         TEXT NOT NULL,
+    status              VARCHAR(20) NOT NULL CHECK (status IN ('OPEN', 'UNDER_REVIEW', 'RESOLVED', 'CLOSED')) DEFAULT 'OPEN',
+    decision            VARCHAR(30) CHECK (decision IN ('RELEASE_TO_SELLER', 'REFUND_BUYER', 'PARTIAL_REFUND', 'CANCEL')),
+    decision_reason     TEXT,
+    refund_amount       BIGINT,
+    resolved_by         UUID REFERENCES auth.users(id),
+    resolved_at         TIMESTAMPTZ,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 
-CREATE OR REPLACE VIEW covenant.covenant_summary AS
-SELECT
-    c.id,
-    c.covenant_code,
-    c.item_name,
-    c.amount,
-    c.status,
-    c.deadline_at,
-    c.created_at,
-    i.full_name AS initiator_name,
-    i.phone AS initiator_phone,
-    cp.full_name AS counterpart_name,
-    cp.phone AS counterpart_phone,
-    e.status AS escrow_status,
-    e.amount AS escrow_amount
-FROM covenant.covenants c
-JOIN seal.pilgrims i ON i.id = c.initiator_id
-JOIN seal.pilgrims cp ON cp.id = c.counterpart_id
-LEFT JOIN covenant.escrow_seals e ON e.covenant_id = c.id;
+CREATE INDEX IF NOT EXISTS idx_disputes_room_id ON dispute.disputes(room_id);
 
--- Auto-release helper function (called by cron in covenant-service)
-CREATE OR REPLACE FUNCTION covenant.get_expired_covenants()
-RETURNS TABLE (covenant_id UUID, initiator_id UUID, counterpart_id UUID, amount DECIMAL) AS $$
-BEGIN
-    RETURN QUERY
-    SELECT c.id, c.initiator_id, c.counterpart_id, c.amount
-    FROM covenant.covenants c
-    WHERE c.status = 'DELIVERED'
-      AND c.deadline_at <= NOW()
-      AND c.fulfilled_at IS NULL
-      AND c.judgment_at IS NULL;
-END;
-$$ LANGUAGE plpgsql;
+CREATE TABLE IF NOT EXISTS dispute.dispute_evidence (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    dispute_id          UUID NOT NULL REFERENCES dispute.disputes(id) ON DELETE CASCADE,
+    uploaded_by         UUID NOT NULL REFERENCES auth.users(id),
+    evidence_type       VARCHAR(20) NOT NULL CHECK (evidence_type IN ('IMAGE', 'VIDEO', 'DOCUMENT', 'CHAT_LOG')),
+    file_url            VARCHAR(500) NOT NULL,
+    file_name           VARCHAR(255),
+    description         TEXT,
+    uploaded_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS dispute.dispute_logs (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    dispute_id          UUID NOT NULL REFERENCES dispute.disputes(id) ON DELETE CASCADE,
+    actor_id            UUID REFERENCES auth.users(id),
+    actor_role          VARCHAR(20) NOT NULL CHECK (actor_role IN ('BUYER', 'SELLER', 'ADMIN', 'SYSTEM')),
+    action              VARCHAR(50) NOT NULL,
+    details             JSONB,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS dispute.admin_decisions (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    dispute_id          UUID NOT NULL UNIQUE REFERENCES dispute.disputes(id),
+    admin_id            UUID NOT NULL REFERENCES auth.users(id),
+    decision            VARCHAR(30) NOT NULL CHECK (decision IN ('RELEASE_TO_SELLER', 'REFUND_BUYER', 'PARTIAL_REFUND', 'CANCEL')),
+    reason              TEXT NOT NULL,
+    refund_amount       BIGINT,
+    transaction_id      UUID REFERENCES wallet.transactions(id),
+    decided_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 
 -- ═══════════════════════════════════════════════════════════════════════════════
--- SEED DATA
+-- SEED ADMIN USER
 -- ═══════════════════════════════════════════════════════════════════════════════
 
--- Insert a default Oracle (admin) pilgrim
--- Password: OraclePass123! | PIN: 000000 (change in production!)
-INSERT INTO seal.pilgrims (
-    id, phone, email, password_hash, pin_hash,
-    full_name, is_oracle, status, attunement_status
+INSERT INTO auth.users (
+    id, email, username, full_name, role, is_verified, is_pin_set
 ) VALUES (
     '00000000-0000-0000-0000-000000000001',
-    '+621234567890',
-    'oracle@eyesofpriestess.id',
-    crypt('OraclePass123!', gen_salt('bf', 12)),
-    crypt('000000', gen_salt('bf', 12)),
-    'The High Oracle',
+    'admin@eyesofpriestess.com',
+    'admin',
+    'System Admin',
+    'ADMIN',
     TRUE,
-    'ATTUNED',
-    'ATTUNED'
-) ON CONFLICT (phone) DO NOTHING;
+    TRUE
+) ON CONFLICT (email) DO NOTHING;
 
--- Create treasury for oracle pilgrim
-INSERT INTO vault.treasuries (pilgrim_id)
-VALUES ('00000000-0000-0000-0000-000000000001')
-ON CONFLICT (pilgrim_id) DO NOTHING;
+INSERT INTO wallet.wallets (
+    user_id, available_balance, escrow_balance, currency
+) VALUES (
+    '00000000-0000-0000-0000-000000000001',
+    1000000000,
+    0,
+    'IDR'
+) ON CONFLICT (user_id) DO NOTHING;
