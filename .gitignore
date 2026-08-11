@@ -1,12 +1,27 @@
-```
 # Dependencies
 node_modules/
 
-# Editors
-.vscode/
+# Java / Maven
+target/
+**/target/
+*.class
+*.jar
+*.war
+
+# Frontend / SvelteKit / Node
+.svelte-kit/
+build/
+dist/
+.output/
 
 # Environment
 .env
 .env.local
 .env.*
-```
+
+# IDEs & OS
+.idea/
+.vscode/
+*.swp
+*.DS_Store
+.trash*

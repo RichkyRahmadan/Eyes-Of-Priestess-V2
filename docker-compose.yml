@@ -67,6 +67,7 @@ services:
       interval: 10s
       timeout: 10s
       retries: 5
+      start_period: 30s
     networks:
       - sanctum-network
 
@@ -253,24 +254,6 @@ services:
       - covenant-service
       - communion-service
       - judgment-service
-    networks:
-      - sanctum-network
-
-  # ─── THE SANCTUM (FRONTEND) ─────────────────────────────────────────────────
-
-  the-sanctum:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: eop-sanctum
-    restart: unless-stopped
-    environment:
-      PUBLIC_API_URL: http://localhost:8080
-      NODE_ENV: production
-    ports:
-      - "3000:3000"
-    depends_on:
-      - kong
     networks:
       - sanctum-network
 
