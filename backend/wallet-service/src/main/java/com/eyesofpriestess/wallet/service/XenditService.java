@@ -19,7 +19,7 @@ import java.util.UUID;
  * XenditService — Integration service for Xendit Payment Gateway (Sandbox & Production).
  *
  * Supported features:
- * - Create Invoice (VA, QRIS, E-Wallet, Retail Outlet) for Offering top-ups
+ * - Create Invoice (VA, QRIS, E-Wallet, Retail Outlet) for TopUpOrder top-ups
  * - Create Disbursement for bank account withdrawals
  * - Webhook callback token validation
  */
@@ -57,16 +57,16 @@ public class XenditService {
     }
 
     /**
-     * Create a Xendit Invoice for an Offering top-up.
+     * Create a Xendit Invoice for an TopUpOrder top-up.
      * Endpoint: POST https://api.xendit.co/v2/invoices
      */
     public Uni<JsonObject> createInvoice(UUID offeringId, BigDecimal amount, String pilgrimPhone, String paymentMethod) {
-        String externalId = "OFFERING-" + offeringId;
+        String externalId = "TopUpOrder-" + offeringId;
 
         JsonObject body = new JsonObject()
                 .put("external_id", externalId)
                 .put("amount", amount.longValue())
-                .put("description", "Sacred Offering — EyesOfPriestess Top-Up")
+                .put("description", "Sacred TopUpOrder — EyesOfPriestess Top-Up")
                 .put("invoice_duration", 86400) // 24 hours
                 .put("success_redirect_url", callbackUrl + "/payment/success")
                 .put("failure_redirect_url", callbackUrl + "/payment/failed")
@@ -107,7 +107,7 @@ public class XenditService {
                 .put("bank_code", bankCode.toUpperCase())
                 .put("account_holder_name", accountName)
                 .put("account_number", accountNumber)
-                .put("description", "Sacred Treasury Withdrawal — EyesOfPriestess")
+                .put("description", "Sacred Wallet Withdrawal — EyesOfPriestess")
                 .put("amount", amount.longValue());
 
         LOG.infof("[XENDIT] Creating Disbursement: external_id=%s, bank=%s, amount=%s",

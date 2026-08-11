@@ -22,7 +22,7 @@ public interface WalletClient {
     Uni<ApiResponse<Map<String, String>>> holdEscrow(
             @QueryParam("buyerId") UUID buyerId,
             @QueryParam("amount") BigDecimal amount,
-            @QueryParam("covenantId") String covenantId
+            @QueryParam("roomId") String roomId
     );
 
     @POST
@@ -31,7 +31,7 @@ public interface WalletClient {
             @QueryParam("buyerId") UUID buyerId,
             @QueryParam("sellerId") UUID sellerId,
             @QueryParam("amount") BigDecimal amount,
-            @QueryParam("covenantId") String covenantId
+            @QueryParam("roomId") String roomId
     );
 
     @POST
@@ -39,6 +39,6 @@ public interface WalletClient {
     Uni<ApiResponse<Map<String, String>>> refundEscrow(
             @QueryParam("buyerId") UUID buyerId,
             @QueryParam("amount") BigDecimal amount,
-            @QueryParam("covenantId") String covenantId
+            @QueryParam("roomId") String roomId
     );
 }

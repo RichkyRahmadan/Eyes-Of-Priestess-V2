@@ -14,9 +14,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 /**
- * RoomRegistry — In-memory registry of active WebSocket sessions grouped by covenant room.
+ * RoomRegistry — In-memory registry of active WebSocket sessions grouped by Room room.
  *
- * Each covenant room has a Set of open WebSocket Sessions.
+ * Each Room room has a Set of open WebSocket Sessions.
  * On message, the payload is broadcast to all members of that room.
  */
 @ApplicationScoped
@@ -24,28 +24,28 @@ public class RoomRegistry {
 
     private static final Logger LOG = Logger.getLogger(RoomRegistry.class);
 
-    /** Map: covenantId → Set of active WebSocket sessions */
+    /** Map: roomId → Set of active WebSocket sessions */
     private final Map<String, Set<Session>> rooms = new ConcurrentHashMap<>();
 
     @Inject ObjectMapper objectMapper;
 
-    public void join(String covenantId, Session session) {
-        rooms.computeIfAbsent(covenantId, k -> ConcurrentHashMap.newKeySet()).add(session);
+    public void join(String roomId, Session session) {
+        rooms.computeIfAbsent(roomId, k -> ConcurrentHashMap.newKeySet()).add(session);
         LOG.infof("[COMMUNION-REGISTRY] Session %s joined room %s. Active in room: %d",
-                session.getId(), covenantId, rooms.get(covenantId).size());
+                session.getId(), roomId, rooms.get(roomId).size());
     }
 
-    public void leave(String covenantId, Session session) {
-        Set<Session> sessions = rooms.get(covenantId);
+    public void leave(String roomId, Session session) {
+        Set<Session> sessions = rooms.get(roomId);
         if (sessions != null) {
             sessions.remove(session);
-            if (sessions.isEmpty()) rooms.remove(covenantId);
+            if (sessions.isEmpty()) rooms.remove(roomId);
         }
-        LOG.infof("[COMMUNION-REGISTRY] Session %s left room %s", session.getId(), covenantId);
+        LOG.infof("[COMMUNION-REGISTRY] Session %s left room %s", session.getId(), roomId);
     }
 
-    public void broadcast(String covenantId, Object payload) {
-        Set<Session> sessions = rooms.getOrDefault(covenantId, Set.of());
+    public void broadcast(String roomId, Object payload) {
+        Set<Session> sessions = rooms.getOrDefault(roomId, Set.of());
         if (sessions.isEmpty()) return;
 
         String json;
@@ -71,8 +71,8 @@ public class RoomRegistry {
         }
     }
 
-    public int getActiveSessionCount(String covenantId) {
-        Set<Session> sessions = rooms.get(covenantId);
+    public int getActiveSessionCount(String roomId) {
+        Set<Session> sessions = rooms.get(roomId);
         return sessions == null ? 0 : sessions.size();
     }
 
@@ -81,10 +81,10 @@ public class RoomRegistry {
     }
 
     public UUID getSessionPilgrimId(Session session) {
-        return (UUID) session.getUserProperties().get("pilgrimId");
+        return (UUID) session.getUserProperties().get("userId");
     }
 
     public String getSessionDisplay(Session session) {
-        return (String) session.getUserProperties().getOrDefault("display", "Unknown Pilgrim");
+        return (String) session.getUserProperties().getOrDefault("display", "Unknown User");
     }
 }

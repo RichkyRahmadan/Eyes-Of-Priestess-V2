@@ -6,11 +6,11 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * Message — A persisted Communion chat message inside a Covenant room.
+ * Message — A persisted Communion chat message inside a Room room.
  *
  * Types:
- * - USER: normal pilgrim message
- * - SYSTEM: auto-generated status transition notification (e.g. "Covenant SEALED")
+ * - USER: normal User message
+ * - SYSTEM: auto-generated status transition notification (e.g. "Room SEALED")
  */
 @Entity
 @Table(name = "messages", schema = "chat")
@@ -21,7 +21,7 @@ public class Message extends PanacheEntityBase {
     public UUID id;
 
     @Column(name = "covenant_id", nullable = false)
-    public UUID covenantId;
+    public UUID roomId;
 
     @Column(name = "sender_id")
     public UUID senderId;
@@ -43,7 +43,7 @@ public class Message extends PanacheEntityBase {
     public Instant sentAt = Instant.now();
 
     public enum MessageType {
-        USER,   // Sent by a pilgrim
+        USER,   // Sent by a User
         SYSTEM  // Auto-generated status event notification
     }
 }

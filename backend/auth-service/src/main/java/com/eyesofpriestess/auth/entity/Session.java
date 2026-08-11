@@ -24,7 +24,7 @@ public class Session extends PanacheEntityBase {
     public UUID id;
 
     @Column(name = "pilgrim_id", nullable = false)
-    public UUID pilgrimId;
+    public UUID userId;
 
     @Column(name = "refresh_seal_jti", nullable = false, unique = true, length = 255)
     public String refreshSealJti;
@@ -51,9 +51,9 @@ public class Session extends PanacheEntityBase {
 
     // ─── Factory ──────────────────────────────────────────────────────────────
 
-    public static Session forge(UUID pilgrimId, String refreshSealJti, String deviceId, Instant expiresAt) {
+    public static Session forge(UUID userId, String refreshSealJti, String deviceId, Instant expiresAt) {
         Session s = new Session();
-        s.pilgrimId = pilgrimId;
+        s.userId = userId;
         s.refreshSealJti = refreshSealJti;
         s.deviceId = deviceId;
         s.expiresAt = expiresAt;

@@ -19,7 +19,7 @@ public interface AuthClient {
     @POST
     @Path("/internal/verify-pin")
     Uni<ApiResponse<Map<String, Boolean>>> verifyPin(
-            @QueryParam("pilgrimId") UUID pilgrimId,
+            @QueryParam("userId") UUID userId,
             @QueryParam("pin") String pin
     );
 }

@@ -11,13 +11,13 @@ import java.util.UUID;
 @ApplicationScoped
 public class MessageRepository implements PanacheRepositoryBase<Message, UUID> {
 
-    public Uni<List<Message>> findByCovenantId(UUID covenantId, int page, int size) {
-        return find("covenantId = ?1 order by sentAt desc", covenantId)
+    public Uni<List<Message>> findByCovenantId(UUID roomId, int page, int size) {
+        return find("roomId = ?1 order by sentAt desc", roomId)
                 .page(page, size)
                 .list();
     }
 
-    public Uni<Long> countByCovenantId(UUID covenantId) {
-        return count("covenantId", covenantId);
+    public Uni<Long> countByCovenantId(UUID roomId) {
+        return count("roomId", roomId);
     }
 }

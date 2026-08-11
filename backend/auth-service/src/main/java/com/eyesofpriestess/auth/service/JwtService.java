@@ -12,7 +12,7 @@ import java.util.UUID;
 /**
  * JwtService — Sacred Seal (JWT) generation and validation.
  *
- * Access Seal: short-lived (15 min), contains pilgrim identity
+ * Access Seal: short-lived (15 min), contains User identity
  * Refresh Seal: long-lived (7 days), used only for renewal
  *
  * Uses SmallRye JWT Build with RSA private key for signing.
@@ -30,13 +30,13 @@ public class JwtService {
     String issuer;
 
     /**
-     * Issues a new Sacred Seal (access JWT) for the given Pilgrim.
+     * Issues a new Sacred Seal (access JWT) for the given User.
      */
-    public String issueAccessSeal(UUID pilgrimId, String phone,
+    public String issueAccessSeal(UUID userId, String phone,
                                   boolean isOracle, Set<String> roles) {
         Instant now = Instant.now();
         return Jwt.issuer(issuer)
-                .subject(pilgrimId.toString())
+                .subject(userId.toString())
                 .claim("phone", phone)
                 .claim("oracle", isOracle)
                 .claim("typ", "access")
@@ -50,11 +50,11 @@ public class JwtService {
     /**
      * Issues a new Refresh Seal (long-lived JWT) for session management.
      */
-    public String issueRefreshSeal(UUID pilgrimId, String deviceId) {
+    public String issueRefreshSeal(UUID userId, String deviceId) {
         Instant now = Instant.now();
         String jti = UUID.randomUUID().toString();
         return Jwt.issuer(issuer)
-                .subject(pilgrimId.toString())
+                .subject(userId.toString())
                 .claim("typ", "refresh")
                 .claim("jti", jti)
                 .claim("deviceId", deviceId)
@@ -91,7 +91,7 @@ public class JwtService {
     }
 
     /**
-     * Extracts the pilgrim UUID from a token's subject claim.
+     * Extracts the User UUID from a token's subject claim.
      */
     public UUID extractPilgrimId(String token) {
         try {

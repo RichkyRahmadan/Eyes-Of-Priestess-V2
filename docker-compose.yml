@@ -240,7 +240,7 @@ services:
     volumes:
       - ./kong/kong.yaml:/opt/kong/kong.yaml:ro
     ports:
-      - "8080:8000"    # Public Proxy — all client traffic goes here
+      - "8000:8000"    # Public Proxy — all client traffic goes here
       - "8443:8443"    # HTTPS Proxy (future TLS termination)
       - "8001:8001"    # Admin API (localhost only in production!)
     healthcheck:
@@ -267,8 +267,8 @@ services:
       - "3000:3000"
     environment:
       - PORT=3000
-      - PUBLIC_API_BASE_URL=http://localhost:8080/api/v1
-      - PUBLIC_WS_URL=ws://localhost:8080/ws/chat
+      - PUBLIC_API_BASE_URL=http://localhost:8000/api/v1
+      - PUBLIC_WS_URL=ws://localhost:8000/api/v1/chat
     depends_on:
       - kong
     networks:

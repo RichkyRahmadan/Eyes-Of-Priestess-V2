@@ -10,7 +10,7 @@ import org.jboss.logging.Logger;
 
 /**
  * JwtValidator — Validates a JWT token string during WebSocket handshake (query param `token`).
- * Extracts pilgrimId and display name for injection into WebSocket session user properties.
+ * Extracts userId and display name for injection into WebSocket session user properties.
  */
 @ApplicationScoped
 public class JwtValidator {
@@ -36,15 +36,15 @@ public class JwtValidator {
     }
 
     /**
-     * Stamps pilgrim identity onto a WebSocket Session's user properties.
+     * Stamps User identity onto a WebSocket Session's user properties.
      */
     public boolean stampSession(Session session, String rawToken) {
         JsonWebToken jwt = validate(rawToken);
         if (jwt == null) return false;
-        session.getUserProperties().put("pilgrimId", java.util.UUID.fromString(jwt.getSubject()));
+        session.getUserProperties().put("userId", java.util.UUID.fromString(jwt.getSubject()));
         session.getUserProperties().put("display", jwt.getClaim("display") != null
                 ? (String) jwt.getClaim("display")
-                : "Pilgrim-" + jwt.getSubject().substring(0, 6));
+                : "User-" + jwt.getSubject().substring(0, 6));
         return true;
     }
 }

@@ -22,21 +22,21 @@ public class SessionRepository implements PanacheRepositoryBase<Session, UUID> {
                 .map(Optional::ofNullable);
     }
 
-    /** Find all active sessions for a pilgrim (for sanction revocation). */
-    public Uni<List<Session>> findActiveByPilgrimId(UUID pilgrimId) {
-        return list("pilgrimId = ?1 AND severedAt IS NULL", pilgrimId);
+    /** Find all active sessions for a User (for sanction revocation). */
+    public Uni<List<Session>> findActiveByPilgrimId(UUID userId) {
+        return list("userId = ?1 AND severedAt IS NULL", userId);
     }
 
-    /** Count active sessions for a pilgrim. */
-    public Uni<Long> countActiveByPilgrimId(UUID pilgrimId) {
-        return count("pilgrimId = ?1 AND severedAt IS NULL", pilgrimId);
+    /** Count active sessions for a User. */
+    public Uni<Long> countActiveByPilgrimId(UUID userId) {
+        return count("userId = ?1 AND severedAt IS NULL", userId);
     }
 
-    /** Mark all sessions for a pilgrim as severed (used on sanction). */
-    public Uni<Long> severAllByPilgrimId(UUID pilgrimId, String reason) {
+    /** Mark all sessions for a User as severed (used on sanction). */
+    public Uni<Long> severAllByPilgrimId(UUID userId, String reason) {
         return update(
-            "severedAt = NOW(), severedReason = ?1 WHERE pilgrimId = ?2 AND severedAt IS NULL",
-            reason, pilgrimId
+            "severedAt = NOW(), severedReason = ?1 WHERE userId = ?2 AND severedAt IS NULL",
+            reason, userId
         ).map(Integer::longValue);
     }
 }

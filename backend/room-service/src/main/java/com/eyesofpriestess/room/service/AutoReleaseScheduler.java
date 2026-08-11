@@ -1,6 +1,6 @@
 package com.eyesofpriestess.room.service;
 
-import com.eyesofpriestess.room.repository.CovenantRepository;
+import com.eyesofpriestess.room.repository.RoomRepository;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.quarkus.scheduler.Scheduled;
 import io.smallrye.mutiny.Uni;
@@ -11,7 +11,7 @@ import org.jboss.logging.Logger;
 import java.time.Instant;
 
 /**
- * AutoReleaseScheduler — Scheduled task that checks for DELIVERED covenants past their
+ * AutoReleaseScheduler — Scheduled task that checks for DELIVERED rooms past their
  * auto-release timeout and automatically fulfills them (payout released to seller).
  */
 @ApplicationScoped
@@ -19,29 +19,29 @@ public class AutoReleaseScheduler {
 
     private static final Logger LOG = Logger.getLogger(AutoReleaseScheduler.class);
 
-    @Inject CovenantRepository covenantRepo;
-    @Inject CovenantService covenantService;
+    @Inject RoomRepository covenantRepo;
+    @Inject RoomService RoomService;
 
-    @Scheduled(cron = "{covenant.auto-release.cron:0 0 * * * ?}")
+    @Scheduled(cron = "{Room.auto-release.cron:0 0 * * * ?}")
     @WithTransaction
     public Uni<Void> runAutoReleaseJob() {
         Instant now = Instant.now();
-        LOG.infof("[AUTO-RELEASE JOB] Checking for delivered covenants past cutoff %s", now);
+        LOG.infof("[AUTO-RELEASE JOB] Checking for delivered rooms past cutoff %s", now);
 
         return covenantRepo.findDeliveredPastAutoRelease(now)
-                .flatMap(covenants -> {
-                    if (covenants.isEmpty()) {
-                        LOG.debug("[AUTO-RELEASE JOB] No covenants eligible for auto-release.");
+                .flatMap(rooms -> {
+                    if (rooms.isEmpty()) {
+                        LOG.debug("[AUTO-RELEASE JOB] No rooms eligible for auto-release.");
                         return Uni.createFrom().voidItem();
                     }
 
-                    LOG.infof("[AUTO-RELEASE JOB] Found %d covenants eligible for auto-release", covenants.size());
+                    LOG.infof("[AUTO-RELEASE JOB] Found %d rooms eligible for auto-release", rooms.size());
 
                     return Uni.join().all(
-                            covenants.stream()
+                            rooms.stream()
                                     .map(cov -> {
-                                        LOG.infof("[AUTO-RELEASE JOB] Fulfilling covenant %s (seller: %s)", cov.id, cov.sellerId);
-                                        return covenantService.fulfillCovenant(null, cov.id);
+                                        LOG.infof("[AUTO-RELEASE JOB] Fulfilling Room %s (seller: %s)", cov.id, cov.sellerId);
+                                        return RoomService.fulfillCovenant(null, cov.id);
                                     })
                                     .toList()
                     ).andCollectFailures().replaceWithVoid();
