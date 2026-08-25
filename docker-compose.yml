@@ -122,8 +122,8 @@ services:
       RABBITMQ_USERNAME: priestess
       RABBITMQ_PASSWORD: originium_seal
       AUTH_SERVICE_URL: http://auth-service:8081
-      XENDIT_API_KEY: ${XENDIT_API_KEY:-xnd_development_REPLACE_ME}
-      XENDIT_WEBHOOK_TOKEN: ${XENDIT_WEBHOOK_TOKEN:-xnd_webhook_REPLACE_ME}
+      XENDIT_API_KEY: $xnd_public_development_4ahUh4Vnta82oFgPqBuPee0MKoPDl2wFDSVUuLZA7_4ED5T7bILOOBz0O5cStuL
+      XENDIT_WEBHOOK_TOKEN: $aK5Aa4QpBB7U9zbmDvF1Dm888Vpkb7A11Du4TLLL4S60Y98L
       XENDIT_CALLBACK_URL: ${XENDIT_CALLBACK_URL:-https://your-ngrok.ngrok.io}
       TITHE_PERCENTAGE: 1.0
       QUARKUS_HTTP_PORT: 8082
@@ -254,23 +254,6 @@ services:
       - room-service
       - chat-service
       - dispute-service
-    networks:
-      - sanctum-network
-
-  # ─── FRONTEND WEB APPLICATION ──────────────────────────────────────────────
-  the-sanctum:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: eop-sanctum-frontend
-    ports:
-      - "3000:3000"
-    environment:
-      - PORT=3000
-      - PUBLIC_API_BASE_URL=http://localhost:8000/api/v1
-      - PUBLIC_WS_URL=ws://localhost:8000/api/v1/chat
-    depends_on:
-      - kong
     networks:
       - sanctum-network
 
