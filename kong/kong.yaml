@@ -28,7 +28,7 @@ services:
       # Public auth routes — no JWT required
       - name: auth-public
         paths:
-          - ~/api/v1/auth/(login|register|refresh|otp)
+          - ~/api/v1/auth/(login|register|refresh|otp|forgot-password|reset-password|forge|rite|renew)
         strip_path: false
         methods: [GET, POST, OPTIONS]
         regex_priority: 10

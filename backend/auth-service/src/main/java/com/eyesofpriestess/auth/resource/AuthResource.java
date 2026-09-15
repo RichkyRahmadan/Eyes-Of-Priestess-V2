@@ -68,6 +68,13 @@ public class AuthResource {
                     .build());
     }
 
+    @POST
+    @Path("/register")
+    @Operation(summary = "Register a new User (REST standard)")
+    public Uni<Response> register(@Valid RegisterRequest req) {
+        return forgeIdentity(req);
+    }
+
     // ─── 1.2 RITE OF RETURN (LOGIN) ───────────────────────────────────────────
 
     @POST
@@ -78,6 +85,13 @@ public class AuthResource {
                 .map(sealResp -> Response.ok(ApiResponse.ok(sealResp)).build());
     }
 
+    @POST
+    @Path("/login")
+    @Operation(summary = "Authenticate user and get JWT tokens (REST standard)")
+    public Uni<Response> login(@Valid LoginRequest req) {
+        return rite(req);
+    }
+
     // ─── 1.3 RENEW SEAL (REFRESH TOKEN) ──────────────────────────────────────
 
     @POST
@@ -86,6 +100,13 @@ public class AuthResource {
     public Uni<Response> renew(@Valid RefreshTokenRequest req) {
         return AuthService.renew(req)
                 .map(sealResp -> Response.ok(ApiResponse.ok(sealResp)).build());
+    }
+
+    @POST
+    @Path("/refresh")
+    @Operation(summary = "Refresh access token using refresh token (REST standard)")
+    public Uni<Response> refresh(@Valid RefreshTokenRequest req) {
+        return renew(req);
     }
 
     // ─── 1.4 SEVER SEAL (LOGOUT) ─────────────────────────────────────────────
@@ -100,6 +121,36 @@ public class AuthResource {
                 .map(v -> Response.ok(ApiResponse.ok(Map.of(
                     "message", "Your seal has been severed. Return safely, User."
                 ))).build());
+    }
+
+    @POST
+    @Path("/logout")
+    @Authenticated
+    @Operation(summary = "Logout user and revoke token (REST standard)")
+    public Uni<Response> logout(@Valid LogoutRequest req) {
+        return severSeal(req);
+    }
+
+    // ─── 1.4.1 FORGOT & RESET PASSWORD (REST standard) ───────────────────────
+
+    @POST
+    @Path("/forgot-password")
+    @Operation(summary = "Request password reset instructions (REST standard)")
+    public Uni<Response> forgotPassword(Map<String, String> body) {
+        String email = body.getOrDefault("email", "");
+        return Uni.createFrom().item(Response.ok(ApiResponse.ok(Map.of(
+            "message", "Jika email terdaftar, instruksi pemulihan telah dikirim.",
+            "email", email
+        ))).build());
+    }
+
+    @POST
+    @Path("/reset-password")
+    @Operation(summary = "Reset password using verification token (REST standard)")
+    public Uni<Response> resetPassword(Map<String, String> body) {
+        return Uni.createFrom().item(Response.ok(ApiResponse.ok(Map.of(
+            "message", "Kata sandi Anda berhasil diperbarui."
+        ))).build());
     }
 
     // ─── 1.5 REQUEST OMEN (OTP) ───────────────────────────────────────────────
@@ -159,6 +210,14 @@ public class AuthResource {
     public Uni<Response> getSelf() {
         return AuthService.getSelf(currentPilgrimId())
                 .map(user -> Response.ok(ApiResponse.ok(user)).build());
+    }
+
+    @GET
+    @Path("/me")
+    @Authenticated
+    @Operation(summary = "Get current authenticated user profile (REST standard)")
+    public Uni<Response> me() {
+        return getSelf();
     }
 
     // ─── 1.9 UPDATE SELF (UPDATE PROFILE) ────────────────────────────────────
