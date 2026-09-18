@@ -257,8 +257,8 @@ flowchart TD
     J --> K{Keputusan Arbiter}
     K -- Refund Pembeli --> L[Dana Dikembalikan ke Pembeli]
     K -- Lepas ke Penjual --> M[Dana Diberikan ke Penjual]
-    L --> END2([Sengketa Selesai])
-    M --> END2
+    L --> END2([Sengketa Selesai: Refunded])
+    M --> END3([Sengketa Selesai: Released])
 ```
 
 ### OpenAPI / Swagger Documentation

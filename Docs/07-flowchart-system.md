@@ -204,36 +204,61 @@ flowchart TD
 
 ## 5. Alur Mediasi & Putusan Sengketa (Dispute Resolution Flow)
 
-Diagram alur terperinci penanganan perselisihan transaksi escrow di bawah wewenang *High Oracle Administrator*.
+Diagram alur penanganan perselisihan transaksi escrow di bawah wewenang *High Oracle Administrator*. Diagram menggunakan arsitektur jalur paralel independen (*bifurcated non-overlapping lanes*) yang menjamin **garis panah 100% teratur tanpa ada yang saling tumpang tindih (*zero-crossing lines*)**.
 
 ```mermaid
 flowchart TD
-    D_START([Pengguna Mengalami Masalah]) --> D_MODAL[Klik 'Laporkan Sengketa' di Halaman Room]
-    D_MODAL --> D_INPUT[Pilih Kategori Masalah & Tuliskan Kronologi Rinci]
-    D_INPUT --> D_UPLOAD[Lampirkan Bukti Tangkapan Layar / Dokumen PDF via FileUpload]
-    D_UPLOAD --> D_SUBMIT[Kirim Sengketa: POST /api/v1/room/{id}/dispute]
+    subgraph STAGE_1 ["1. PENGAJUAN SENGKETA (CLIENT LAYER)"]
+        D1([Pengguna Mengalami Kendala Transaksi])
+        D2[Buka Halaman Room & Klik 'Laporkan Sengketa']
+        D3[Pilih Kategori Masalah & Tuliskan Kronologi Lengkap]
+        D4[Lampirkan Bukti Tangkapan Layar / Dokumen PDF via FileUpload]
+        D5[Kirim Pengajuan: POST /api/v1/room/:id/dispute]
+        D1 --> D2 --> D3 --> D4 --> D5
+    end
 
-    D_SUBMIT --> D_FREEZE[Dana Escrow Dibekukan Total & Room Berstatus: DISPUTED]
-    D_FREEZE --> D_EVENT[Publish Event: Room.broken Melalui RabbitMQ]
-    
-    D_EVENT --> D_CASE[Dispute Service Membuka Kasus Baru di dispute.disputes]
-    D_CASE --> D_QUEUE[Kasus Masuk ke Antrean Mediasi /admin#disputes]
-    
-    D_QUEUE --> D_ADMIN_VIEW[Arbiter Administrator Memeriksa Berkas Kasus]
-    D_ADMIN_VIEW --> D_ANALYZE[Pemeriksaan: Bukti Serah Terima, Log Obrolan, dan Kredensial]
-    
-    D_ANALYZE --> D_DECISION{Pertimbangan & Putusan Arbiter}
+    subgraph STAGE_2 ["2. PEMBEKUAN TRANSAKSI & EVENT STREAMING"]
+        D6[Room Service: Update Status Menjadi DISPUTED]
+        D7[Kunci Saldo Escrow & Bekukan Timer Auto-Release 24 Jam]
+        D8[RabbitMQ: Publish Event 'Room.broken' ke Topic Exchange]
+        D9[Dispute Service: Konsumsi Event & Simpan Kasus di dispute.disputes]
+        D6 --> D7 --> D8 --> D9
+    end
 
-    D_DECISION -- Pelanggaran oleh Penjual --> D_REFUND[Eksekusi Putusan: REFUND_BUYER]
-    D_DECISION -- Kewajiban Penjual Terbukti Sah --> D_RELEASE[Eksekusi Putusan: RELEASE_TO_SELLER]
+    subgraph STAGE_3 ["3. INVESTIGASI & SIDANG MEDIASI ARBITER"]
+        D10[Kasus Muncul di Panel Mediasi: /admin#disputes]
+        D11[High Oracle / Administrator Membuka Berkas Sengketa]
+        D12[Pemeriksaan: Bukti Serah Terima, Riwayat Chat & Kredensial]
+        D13{Pertimbangan & Putusan Arbiter}
+        D10 --> D11 --> D12 --> D13
+    end
 
-    D_REFUND --> D_PUB_RESOLVED[Publish Event: judgment.resolved ke RabbitMQ]
-    D_RELEASE --> D_PUB_RESOLVED
+    subgraph LANE_A ["JALUR A: PUTUSAN REFUND PEMBELI"]
+        A1[Eksekusi Putusan: REFUND_BUYER]
+        A2[RabbitMQ: Publish Event 'judgment.resolved' Target: BUYER]
+        A3[Wallet Service: Balikkan Saldo Escrow 100% ke Pembeli]
+        A4[Room Service: Perbarui Status Room Menjadi REFUNDED]
+        A5[Kirim Notifikasi & Toast Resmi Pengembalian Dana ke Pembeli]
+        A6([Kasus Selesai: Dana Berhasil Dikembalikan])
+        A1 --> A2 --> A3 --> A4 --> A5 --> A6
+    end
 
-    D_PUB_RESOLVED --> D_WALLET_SETTLE[Wallet Service Mengeksekusi Rekonsiliasi Saldo]
-    D_WALLET_SETTLE --> D_TRANSFER_WINNER[Pencairan Saldo Otomatis ke Dompet Pihak yang Berhak]
-    
-    D_TRANSFER_WINNER --> D_CLOSE_CASE[Kasus Status: RESOLVED | Room Status: CLOSED]
-    D_CLOSE_CASE --> D_NOTIF[Kirim Toast & Notifikasi Keputusan Resmi ke Kedua Pengguna]
-    D_NOTIF --> D_END([Sengketa Ditutup Adil])
+    subgraph LANE_B ["JALUR B: PUTUSAN PELEPASAN PENJUAL"]
+        B1[Eksekusi Putusan: RELEASE_TO_SELLER]
+        B2[RabbitMQ: Publish Event 'judgment.resolved' Target: SELLER]
+        B3[Wallet Service: Lepaskan Saldo Escrow ke Dompet Penjual]
+        B4[Room Service: Perbarui Status Room Menjadi COMPLETED]
+        B5[Kirim Notifikasi & Toast Resmi Pencairan Saldo ke Penjual]
+        B6([Kasus Selesai: Dana Berhasil Dicairkan])
+        B1 --> B2 --> B3 --> B4 --> B5 --> B6
+    end
+
+    %% Koneksi Antar Tahap Vertikal (Single Downward Flow)
+    D5 --> D6
+    D9 --> D10
+
+    %% Percabangan Bebas Silang (Strict Non-Overlapping Bifurcation)
+    D13 -->|"Penjual Wanprestasi / Barang Cacat"| A1
+    D13 -->|"Kewajiban Sah & Bukti Terpenuhi"| B1
 ```
+
