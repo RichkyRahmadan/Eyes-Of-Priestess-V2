@@ -14,8 +14,8 @@
   let allRooms = $state<Room[]>([]);
 
   onMount(async () => {
-    walletLoading.set(true);
-    roomsLoading.set(true);
+    if (!$walletStore) walletLoading.set(true);
+    if ($roomsStore.length === 0) roomsLoading.set(true);
     try {
       const [wallet, txRes, roomRes] = await Promise.all([
         walletApi.getBalance() as Promise<import('$lib/types').Wallet>,

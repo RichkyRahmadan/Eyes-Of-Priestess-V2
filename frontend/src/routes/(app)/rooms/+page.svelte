@@ -21,7 +21,9 @@
   onMount(() => loadRooms(0));
 
   async function loadRooms(page = 0) {
-    roomsLoading.set(true);
+    if ($roomsStore.length === 0 || page !== 0) {
+      roomsLoading.set(true);
+    }
     try {
       const params = new URLSearchParams({
         page: String(page),

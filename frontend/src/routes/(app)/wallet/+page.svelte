@@ -23,7 +23,9 @@
   onMount(() => loadData());
 
   async function loadData(page = 0) {
-    walletLoading.set(true);
+    if (!$walletStore || page !== 0) {
+      walletLoading.set(true);
+    }
     try {
       const params = new URLSearchParams({ page: String(page), size: '20' });
       if (filterType) params.set('type', filterType);

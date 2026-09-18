@@ -110,8 +110,8 @@ services:
 
       - name: rate-limiting
         config:
-          minute: 30     # Stricter for financial endpoints
-          hour: 500
+          minute: 600
+          hour: 20000
           policy: local
           fault_tolerant: true
 
@@ -212,7 +212,7 @@ services:
 
       - name: rate-limiting
         config:
-          minute: 30
+          minute: 600
           policy: local
           fault_tolerant: true
 
