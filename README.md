@@ -195,25 +195,45 @@ Dokumentasi lengkap diagram alur sistem dan diagram arsitektur microservices ber
 ### 1. Diagram Topologi Arsitektur Sistem
 
 ```mermaid
-flowchart TB
-    CLIENT["SvelteKit SPA Client (:5173)"]
-    GATEWAY["Kong API Gateway (:8000)"]
-    AUTH["Auth Service (:8081)"]
-    WALLET["Wallet Service (:8082)"]
-    ROOM["Room Service (:8083)"]
-    CHAT["Chat Service (:8084)"]
-    DISPUTE["Dispute Service (:8085)"]
-    RABBIT["RabbitMQ (eop.events)"]
-    REDIS["Redis (Cache & Blacklist)"]
-    PG[("PostgreSQL 15 (5 Schemas)")]
-    XENDIT["Xendit Payment Gateway"]
+flowchart TD
+    subgraph T1["Client Layer"]
+        CLIENT["SvelteKit SPA Client (:5173)"]
+    end
+    subgraph T2["API Gateway"]
+        GATEWAY["Kong API Gateway (:8000)"]
+    end
+    subgraph T3["Microservices Layer"]
+        AUTH["Auth Service (:8081)"]
+        WALLET["Wallet Service (:8082)"]
+        ROOM["Room Service (:8083)"]
+        CHAT["Chat Service (:8084)"]
+        DISPUTE["Dispute Service (:8085)"]
+    end
+    subgraph T4["Messaging, Cache & Integrations"]
+        REDIS["Redis 7 (Blacklist)"]
+        XENDIT["Xendit PG API"]
+        RABBIT["RabbitMQ (eop.events)"]
+    end
+    subgraph T5["Database Layer"]
+        PG[("PostgreSQL 15 (5 Schemas)")]
+    end
 
     CLIENT --> GATEWAY
-    GATEWAY --> AUTH & WALLET & ROOM & CHAT & DISPUTE
-    AUTH & WALLET & ROOM & CHAT & DISPUTE --> PG
-    AUTH & WALLET --> REDIS
-    ROOM & DISPUTE & WALLET <--> RABBIT
-    WALLET <--> XENDIT
+    GATEWAY --> AUTH
+    GATEWAY --> WALLET
+    GATEWAY --> ROOM
+    GATEWAY --> CHAT
+    GATEWAY --> DISPUTE
+    AUTH --> REDIS
+    WALLET --> XENDIT
+    ROOM --> RABBIT
+    CHAT --> RABBIT
+    DISPUTE --> RABBIT
+    AUTH --> PG
+    WALLET --> PG
+    ROOM --> PG
+    CHAT --> PG
+    DISPUTE --> PG
 ```
 
 ### 2. Diagram Alur Escrow Room (Covenant Lifecycle)
@@ -225,13 +245,20 @@ flowchart TD
     C --> D[Dana Masuk Escrow Balance: FUNDED]
     D --> E[Penjual Kirim Barang & Upload Bukti: DELIVERED]
     E --> F{Pemeriksaan Barang}
-    F -- Sesuai --> G[Pembeli Konfirmasi + PIN: COMPLETED]
+    
+    %% Jalur Sukses
+    F -- Sesuai / Puas --> G[Pembeli Konfirmasi + PIN: COMPLETED]
     G --> H[Dana Dilepas ke Saldo Penjual]
-    F -- Masalah --> I[Buka Sengketa: DISPUTED]
-    I --> J[Arbiter / Admin Menengahi Kasus]
+    H --> END1([Transaksi Berhasil])
+
+    %% Jalur Sengketa
+    F -- Bermasalah --> I[Buka Sengketa: DISPUTED]
+    I --> J[Arbiter Admin Menengahi Kasus]
     J --> K{Keputusan Arbiter}
-    K -- Refund --> L[Dana Dikembalikan ke Pembeli]
-    K -- Release --> H
+    K -- Refund Pembeli --> L[Dana Dikembalikan ke Pembeli]
+    K -- Lepas ke Penjual --> M[Dana Diberikan ke Penjual]
+    L --> END2([Sengketa Selesai])
+    M --> END2
 ```
 
 ### OpenAPI / Swagger Documentation

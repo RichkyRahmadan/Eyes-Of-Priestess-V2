@@ -1,248 +1,239 @@
 # EyesOfPriestess — System Flowchart & Architecture Diagrams
 
-Dokumen ini berisi diagram alur (*flowcharts*) dan arsitektur sistem berbasis sintaks **Mermaid** untuk proyek Capstone S1 **EyesOfPriestess — The Covenant Protocol**.
+Dokumen ini berisi diagram alur (*flowcharts*) dan arsitektur sistem berbasis sintaks **Mermaid** untuk proyek Capstone S1 **EyesOfPriestess — The Covenant Protocol**. Seluruh diagram dirancang dengan hierarki bertingkat searah (*strict single-direction downward flow*) untuk memastikan **tidak ada garis panah yang saling tumpang tindih (*zero-crossing lines*)**.
 
 ---
 
-## 1. Arsitektur Topologi Sistem & Komunikasi Layanan
+## 1. Arsitektur Topologi Sistem (Tiered Architecture Flowchart)
 
-Diagram arsitektur microservices terdistribusi terhubung melalui Kong API Gateway, asynchronous message broker (RabbitMQ), cache & rate-limiter (Redis), database multi-schema (PostgreSQL), dan integrasi payment gateway (Xendit).
+Diagram bertingkat yang mengalirkan request secara bersih dari Client Layer, API Gateway, Microservices, Messaging/Integrasi, hingga Database Persistence Layer tanpa garis yang bersilangan.
 
 ```mermaid
-flowchart TB
-    subgraph CLIENT["Client Layer (Frontend)"]
-        WEB["SvelteKit SPA Client<br/>(TailwindCSS + Svelte 5)<br/>:5173"]
+flowchart TD
+    subgraph T1["1. CLIENT TIER"]
+        CLIENT["SvelteKit SPA Client (:5173)<br/>• Svelte 5 Runes & Responsive UI<br/>• LocalStorage JWT Persistence"]
     end
 
-    subgraph GATEWAY["API Gateway Layer"]
-        KONG["Kong API Gateway (DB-less)<br/>Reverse Proxy, CORS, Rate Limit, Auth<br/>:8000 (HTTP) / :8001 (Admin)"]
+    subgraph T2["2. API GATEWAY TIER"]
+        GATEWAY["Kong API Gateway DB-less (:8000)<br/>• Reverse Proxy & Central Route Mapping<br/>• Rate-Limiting: 600 req/min | CORS Enabled"]
     end
 
-    subgraph MICROSERVICES["Microservices Layer (Quarkus 3.x Reactive)"]
-        AUTH["Auth Service (:8081)<br/>JWT RSA256, Identity & PIN"]
-        WALLET["Wallet Service (:8082)<br/>Balance, Ledger, Xendit PG"]
+    subgraph T3["3. MICROSERVICES LAYER (Quarkus 3.x Reactive)"]
+        direction LR
+        AUTH["Auth Service (:8081)<br/>JWT RSA256, User & PIN"]
+        WALLET["Wallet Service (:8082)<br/>Balance, Ledger & Accounts"]
         ROOM["Room Service (:8083)<br/>Escrow Covenant Engine"]
-        CHAT["Chat Service (:8084)<br/>In-Room Messaging & WebSocket"]
+        CHAT["Chat Service (:8084)<br/>In-Room Chat & WebSocket"]
         DISPUTE["Dispute Service (:8085)<br/>Arbitration & Evidence"]
     end
 
-    subgraph BROKER["Event Bus & Cache"]
-        RABBIT["RabbitMQ 3.x (:5672)<br/>Topic Exchange: eop.events"]
-        REDIS["Redis 7 (:6379)<br/>Token Blacklist, Idempotency, Rate-Limits"]
+    subgraph T4["4. MESSAGING, CACHE & EXTERNAL SERVICES"]
+        direction LR
+        REDIS["Redis 7 (:6379)<br/>Token Blacklist & Rate Limit"]
+        XENDIT["Xendit Payment Gateway API<br/>Virtual Account & QRIS Callback"]
+        RABBIT["RabbitMQ 3.x (:5672)<br/>Event Topic Exchange: eop.events"]
     end
 
-    subgraph STORAGE["Persistence Layer"]
-        subgraph PG["PostgreSQL 15 (:5435)"]
-            DB_AUTH[("Schema: auth<br/>users, credentials, sessions")]
-            DB_WALLET[("Schema: wallet<br/>wallets, transactions, bank_accounts")]
-            DB_ROOM[("Schema: room<br/>rooms, participants, delivery_proofs")]
-            DB_CHAT[("Schema: chat<br/>chat_rooms, messages, reactions")]
-            DB_DISPUTE[("Schema: dispute<br/>disputes, evidence, admin_decisions")]
-        end
+    subgraph T5["5. PERSISTENCE LAYER (PostgreSQL 15 :5435)"]
+        direction LR
+        DB_AUTH[("Schema auth<br/>users, credentials, sessions")]
+        DB_WALLET[("Schema wallet<br/>wallets, transactions, bank_accounts")]
+        DB_ROOM[("Schema room<br/>rooms, delivery_proofs")]
+        DB_CHAT[("Schema chat<br/>chat_rooms, messages")]
+        DB_DISPUTE[("Schema dispute<br/>disputes, admin_decisions")]
     end
 
-    subgraph EXTERNAL["External Integrations"]
-        XENDIT["Xendit Payment Gateway API<br/>(Virtual Account, QRIS, E-Wallet)"]
-    end
+    %% Tier 1 ke Tier 2
+    CLIENT -->|"HTTP / REST API & WebSocket Handshake"| GATEWAY
 
-    %% Client to Gateway
-    WEB -->|"REST API (/api/v1/*)<br/>WebSocket (/api/v1/chat/*)"| KONG
+    %% Tier 2 ke Tier 3 (Rute sejajar tanpa silang)
+    GATEWAY -->|"/api/v1/auth/*"| AUTH
+    GATEWAY -->|"/api/v1/wallet/*"| WALLET
+    GATEWAY -->|"/api/v1/room/*"| ROOM
+    GATEWAY -->|"/api/v1/chat/*"| CHAT
+    GATEWAY -->|"/api/v1/dispute/*"| DISPUTE
 
-    %% Gateway Routing
-    KONG -->|"/api/v1/auth/*"| AUTH
-    KONG -->|"/api/v1/wallet/*"| WALLET
-    KONG -->|"/api/v1/room/*"| ROOM
-    KONG -->|"/api/v1/chat/*"| CHAT
-    KONG -->|"/api/v1/dispute/*"| DISPUTE
+    %% Tier 3 ke Tier 4 (Integrasi sejajar langsung)
+    AUTH -->|"Blacklist Check & Rate Limits"| REDIS
+    WALLET -->|"Invoice Order & Payment Webhook"| XENDIT
+    ROOM -->|"Publish: Room.fulfilled & Room.broken"| RABBIT
+    CHAT -->|"Publish Message Events"| RABBIT
+    DISPUTE -->|"Publish: judgment.resolved"| RABBIT
 
-    %% Service to Message Broker
-    ROOM -.->|"Publish: Room.created, Room.funded,<br/>Room.delivered, Room.fulfilled, Room.broken"| RABBIT
-    RABBIT -.->|"Consume: Room.fulfilled"| WALLET
-    RABBIT -.->|"Consume: Room.broken"| DISPUTE
-    DISPUTE -.->|"Publish: judgment.resolved"| RABBIT
-    RABBIT -.->|"Consume: judgment.resolved"| WALLET
-
-    %% Service to Redis
-    AUTH -->|"Blacklist check & rate-limits"| REDIS
-    WALLET -->|"Idempotency keys"| REDIS
-
-    %% Services to DB Schemas
+    %% Tier 3 ke Tier 5 (Database Schemas terisolasi)
     AUTH --> DB_AUTH
     WALLET --> DB_WALLET
     ROOM --> DB_ROOM
     CHAT --> DB_CHAT
     DISPUTE --> DB_DISPUTE
-
-    %% External
-    WALLET <-->|"Payment Orders & Webhooks"| XENDIT
 ```
 
 ---
 
 ## 2. Alur Transaksi Escrow Covenant (Escrow Room Lifecycle)
 
-Flowchart siklus hidup transaksi escrow mulai dari pembuatan kesepakatan, penguncian dana, serah terima, hingga penyelesaian transaksi atau sengketa mediasi.
+Flowchart siklus transaksi escrow mulai dari pembuatan room, penguncian saldo, pengiriman bukti serah terima, hingga penyelesaian transaksi atau sengketa mediasi.
 
 ```mermaid
 flowchart TD
-    START([Mulai Transaksi]) --> CREATE[Pembeli atau Penjual Membuat Room Escrow]
-    CREATE --> ROOM_INIT[Room Berstatus: WAITING_PAYMENT<br/>Kanal Chat Terenkripsi Dibuat Otomatis]
+    START([Mulai Transaksi Escrow]) --> CREATE[Pembeli & Penjual Membuat Room Kesepakatan]
+    CREATE --> WAITING[Room Dibuat Status: WAITING_PAYMENT<br/>Kanal Chat Terenkripsi Terbuka]
     
-    ROOM_INIT --> CHECK_BUYER{Pembeli Memiliki<br/>Saldo Cukup?}
-    CHECK_BUYER -- Tidak --> TOPUP_ACTION[Pembeli Melakukan Top-Up Saldo Dompet]
-    TOPUP_ACTION --> CHECK_BUYER
-    CHECK_BUYER -- Ya --> FUND[Pembeli Memasukkan PIN 6 Digit & Konfirmasi Kunci Dana]
+    WAITING --> CHECK_SALDO{Pengecekan Saldo Pembeli}
+    CHECK_SALDO -- Saldo Cukup --> FUND_ACTION[Pembeli Konfirmasi Penguncian Dana + Input PIN 6 Digit]
+    CHECK_SALDO -- Saldo Kurang --> TOPUP_ACTION[Pembeli Melakukan Top-Up Saldo via VA/QRIS]
+    TOPUP_ACTION --> FUND_ACTION
 
-    FUND --> LOCK_BALANCE[Sistem Memindahkan Dana:<br/>Available Balance ➔ Escrow Balance<br/>Room Berstatus: FUNDED]
-
-    LOCK_BALANCE --> CHAT_COMMUNICATION[Kedua Pihak Berkomunikasi via In-Room Chat]
-    CHAT_COMMUNICATION --> SELLER_DELIVER[Penjual Menyerahkan Akun/Barang &<br/>Mengunggah Bukti Serah Terima JPG/PNG/PDF]
+    FUND_ACTION --> FUNDED_STATE[Dana Masuk ke Escrow Balance<br/>Room Status: FUNDED]
     
-    SELLER_DELIVER --> DELIVERED[Room Berstatus: DELIVERED<br/>Timer Otomatis 24 Jam Aktif]
+    FUNDED_STATE --> SELLER_SEND[Penjual Menyerahkan Akun / Barang ke Pembeli]
+    SELLER_SEND --> UPLOAD_PROOF[Penjual Unggah Bukti Serah Terima JPG/PNG/PDF]
+    
+    UPLOAD_PROOF --> DELIVERED_STATE[Room Status: DELIVERED<br/>Timer Proteksi Penjual 24 Jam Berjalan]
 
-    DELIVERED --> BUYER_INSPECT{Pembeli Memeriksa<br/>Kondisi Barang}
+    DELIVERED_STATE --> BUYER_CHECK{Pemeriksaan Kondisi Barang oleh Pembeli}
 
-    %% Happy Path
-    BUYER_INSPECT -- Sesuai / Puas --> BUYER_CONFIRM[Pembeli Konfirmasi Penerimaan<br/>Input PIN 6 Digit]
-    BUYER_CONFIRM --> RELEASE_FUNDS[Event: Room.fulfilled Terkirim<br/>Dana Escrow Dilepas ke Saldo Penjual]
-    RELEASE_FUNDS --> COMPLETED[Room Berstatus: COMPLETED<br/>Transaksi Berhasil & Beri Rating]
-    COMPLETED --> FINISH([Selesai])
+    %% Cabang 1: Transaksi Normal (Puas)
+    BUYER_CHECK -- Sesuai / Puas --> CONFIRM_ACTION[Pembeli Konfirmasi Penerimaan + Input PIN 6 Digit]
+    DELIVERED_STATE -- 24 Jam Tanpa Sengketa --> AUTO_RELEASE[Auto-Release Sistem]
+    AUTO_RELEASE --> CONFIRM_ACTION
 
-    %% Dispute Path
-    BUYER_INSPECT -- Bermasalah / Tidak Sesuai --> OPEN_DISPUTE[Salah Satu Pihak Buka Sengketa:<br/>Input Alasan & Unggah Bukti Pendukung]
-    DELIVERED -- Batas Waktu Habis Tanpa Respons --> AUTO_RELEASE[Auto-Release Proteksi Penjual]
-    AUTO_RELEASE --> RELEASE_FUNDS
+    CONFIRM_ACTION --> EVENT_FULFILLED[RabbitMQ Publish: Room.fulfilled]
+    EVENT_FULFILLED --> RELEASE_PAYOUT[Wallet Service Melepas Saldo Escrow ke Dompet Penjual]
+    RELEASE_PAYOUT --> COMPLETED_STATE[Room Status: COMPLETED<br/>Transaksi Selesai & Berikan Ulasan]
+    COMPLETED_STATE --> END_SUCCESS([Transaksi Selesai])
 
-    OPEN_DISPUTE --> DISPUTED[Room Berstatus: DISPUTED<br/>Dana Tetap Terkunci di Escrow<br/>Kasus Masuk ke Antrean Arbiter Admin]
+    %% Cabang 2: Pengajuan Sengketa
+    BUYER_CHECK -- Bermasalah / Tidak Sesuai --> DISPUTE_ACTION[Ajukan Mediasi: Buka Modal Sengketa & Lampirkan Bukti]
+    DISPUTE_ACTION --> DISPUTED_STATE[Dana Escrow Dibekukan Total<br/>Room Status: DISPUTED]
+    
+    DISPUTED_STATE --> ARBITER_REVIEW[Arbiter / Admin Sanctum Meninjau Bukti Dokumen & Log Obrolan]
+    ARBITER_REVIEW --> JUDGMENT_CHOICE{Keputusan Arbiter Admin}
 
-    DISPUTED --> ARBITRATION[Arbiter / Admin Meninjau Bukti & Chat Log]
-    ARBITRATION --> DECISION{Keputusan Arbiter}
+    JUDGMENT_CHOICE -- Refund Pembeli --> RESOLVE_BUYER[Keputusan: REFUND_BUYER<br/>Dana Escrow Dikembalikan Penuh ke Pembeli]
+    JUDGMENT_CHOICE -- Lepas ke Penjual --> RESOLVE_SELLER[Keputusan: RELEASE_TO_SELLER<br/>Dana Escrow Dilepaskan ke Penjual]
 
-    DECISION -- Refund Pembeli --> REFUND_ACTION[Event: judgment.resolved<br/>Winner: BUYER<br/>Dana Escrow Dikembalikan ke Pembeli]
-    DECISION -- Lepas ke Penjual --> RELEASE_ACTION[Event: judgment.resolved<br/>Winner: SELLER<br/>Dana Escrow Diberikan ke Penjual]
-    DECISION -- Pembagian Adil Split --> SPLIT_ACTION[Event: judgment.resolved<br/>Winner: SPLIT<br/>Dana Dibagi Proporsional]
-
-    REFUND_ACTION --> RESOLVED_CLOSE[Status Room: REFUNDED / CLOSED]
-    RELEASE_ACTION --> RESOLVED_CLOSE
-    SPLIT_ACTION --> RESOLVED_CLOSE
-    RESOLVED_CLOSE --> FINISH
+    RESOLVE_BUYER --> CLOSED_STATE[Room Status: REFUNDED / CLOSED]
+    RESOLVE_SELLER --> CLOSED_STATE
+    CLOSED_STATE --> END_DISPUTE([Sengketa Tuntas])
 ```
 
 ---
 
-## 3. Alur Autentikasi, Keamanan JWT, & RBAC Guard
+## 3. Alur Autentikasi & Keamanan Akses (JWT & RBAC Guard)
 
-Flowchart proses registrasi, login, penerbitan token JWT asimetris RSA256, rotasi refresh token, dan pengecekan otorisasi Role-Based Access Control.
+Diagram proses autentikasi akun baru, login kredensial, penerbitan sepasang token JWT asimetris, dan validasi hak akses pengguna vs admin.
 
 ```mermaid
 flowchart TD
-    USER_REQ([Pengguna Mengakses Sistem]) --> IS_AUTH{Memiliki Token JWT Valid?}
+    START_AUTH([Akses Aplikasi]) --> CHK_TOKEN{Pengecekan Status Login Client}
 
-    IS_AUTH -- Tidak --> LOGIN_REGISTER{Aksi Pengguna}
+    %% Jalur Belum Login
+    CHK_TOKEN -- Belum Login --> AUTH_SCREEN[Tampilkan Halaman Login / Registrasi]
     
-    LOGIN_REGISTER -- Register --> REG_FORM[Pengguna Isi Form:<br/>Email, No HP, Nama, Password, PIN 6 Digit]
-    REG_FORM --> REG_VALIDATE{Validasi Input & Format}
-    REG_VALIDATE -- Gagal --> REG_ERROR[Inline Feedback Error 400/422] --> REG_FORM
-    REG_VALIDATE -- Berhasil --> HASH_PASS[Bcrypt Hash Password & PIN]
-    HASH_PASS --> INSERT_USER[Simpan ke auth.users & wallet.wallets Otomatis]
-    INSERT_USER --> REG_SUCCESS[Registrasi Sukses (HTTP 201) ➔ Arahkan ke Login]
+    AUTH_SCREEN --> ACTION_TYPE{Aksi Pengguna}
 
-    LOGIN_REGISTER -- Login --> LOGIN_FORM[Pengguna Input Email/No HP & Password]
-    LOGIN_FORM --> VERIFY_PASS{Cek Hash Password di auth.credentials}
-    VERIFY_PASS -- Salah --> INC_ATTEMPTS[Tambah Hitungan Gagal<br/>Jika >= 5 Kunci Akun Sementara] --> LOGIN_ERROR[HTTP 401: Kredensial Tidak Sah]
-    VERIFY_PASS -- Benar --> GEN_JWT[Penerbitan Sepasang Token:<br/>1. Access Token RSA256 (Exp: 15 Menit)<br/>2. Refresh Token JTI (Exp: 7 Hari)]
-    GEN_JWT --> SAVE_STORAGE[Simpan Token di LocalStorage Client]
-    SAVE_STORAGE --> REDIRECT_DASH[Redirect Otomatis ke /dashboard]
+    ACTION_TYPE -- Daftar Akun Baru --> FORM_REG[Input: Nama, Email, No HP, Password, PIN]
+    FORM_REG --> VALIDATE_REG[Validasi Payload & Bcrypt Hash Kredensial]
+    VALIDATE_REG --> INSERT_DB[Simpan ke auth.users & Buat Dompet Baru di wallet.wallets]
+    INSERT_DB --> REG_DONE[Registrasi Berhasil HTTP 201] --> FORM_LOGIN
 
-    IS_AUTH -- Ya --> REQ_RESOURCE[Request Mengakses Endpoint Private]
-    REQ_RESOURCE --> CHECK_BLACKLIST{Cek Token JTI di Redis Blacklist?}
-    CHECK_BLACKLIST -- Masuk Blacklist/Insta-Ban --> FORBIDDEN_401[HTTP 401: Sesi Dibatalkan ➔ Logout]
-    CHECK_BLACKLIST -- Aman --> CHECK_EXPIRY{Token Kedaluwarsa?}
+    ACTION_TYPE -- Masuk Akun --> FORM_LOGIN[Input Email/No HP & Password]
+    FORM_LOGIN --> VERIFY_PASS[Verifikasi Password Hash di auth.credentials]
+    
+    VERIFY_PASS --> PASS_CHECK{Kredensial Cocok?}
+    PASS_CHECK -- Salah --> ERR_LOGIN[HTTP 401: Kredensial Tidak Sah / Akun Terkunci]
+    
+    PASS_CHECK -- Benar --> ISSUE_TOKEN[Terbitkan Token JWT RSA256 & Refresh Token JTI]
+    ISSUE_TOKEN --> STORE_JWT[Simpan Access Token di LocalStorage Client]
+    STORE_JWT --> REDIRECT_DASH[Arahkan Pengguna ke /dashboard]
 
-    CHECK_EXPIRY -- Ya --> AUTO_REFRESH[Kirim Refresh Token ke /api/v1/auth/renew]
-    AUTO_REFRESH --> REFRESH_OK{Refresh Token Sah?}
-    REFRESH_OK -- Ya --> ISSUE_NEW[Terbitkan Access Token Baru] --> REQ_RESOURCE
-    REFRESH_OK -- Tidak --> PURGE_SESSION[Purge Storage & Redirect ke /login]
-
-    CHECK_EXPIRY -- Tidak --> RBAC_CHECK{Memeriksa Peran Pengguna}
-    RBAC_CHECK -- Role: USER --> ALLOW_USER[Akses Halaman Pengguna: Dashboard, Dompet, Room, Chat]
-    RBAC_CHECK -- Role: ADMIN --> ALLOW_ADMIN[Akses Penuh: Dashboard Admin, Mediasi Sengketa, Ban Akun]
-    ALLOW_USER -- Mencoba Akses /admin/* --> DENY_403[HTTP 403 Forbidden: Akses Khusus Arbiter]
+    %% Jalur Sudah Login
+    CHK_TOKEN -- Sudah Memiliki Token --> CALL_API[Request Endpoint Terproteksi]
+    CALL_API --> CHECK_REDIS[Periksa JTI di Redis Token Blacklist]
+    
+    CHECK_REDIS --> BL_CHECK{Terdaftar di Blacklist?}
+    BL_CHECK -- Ya --> LOGOUT_FORCE[HTTP 401: Sesi Dicabut ➔ Auto Logout]
+    
+    BL_CHECK -- Tidak --> CHECK_ROLES{Evaluasi Hak Akses Role}
+    CHECK_ROLES -- Role: USER --> USER_PAGES[Izinkan Akses: Dashboard, Dompet, Room, Obrolan]
+    CHECK_ROLES -- Role: ADMIN / ORACLE --> ADMIN_PAGES[Izinkan Akses: Dashboard Admin, Mediasi Sengketa, Ban Akun]
+    
+    USER_PAGES -- Percobaan Akses ke /admin/* --> FORBIDDEN[HTTP 403: Akses Ditolak Khusus Administrator]
 ```
 
 ---
 
-## 4. Alur Top-Up & Pembayaran Gateway (Xendit Lifecycle)
+## 4. Alur Pembayaran & Webhook Payment Gateway (Xendit)
 
-Flowchart integrasi pembayaran otomatis dari request order, pembuatan invoice Virtual Account / QRIS, proses pembayaran oleh nasabah, hingga konfirmasi webhook asinkron.
+Diagram alur permintaan top-up, pembuatan invoice pembayaran, verifikasi token callback, dan jaminan idempotensi saldo.
 
 ```mermaid
 flowchart TD
-    START_TOPUP([Pengguna Ingin Tambah Saldo]) --> OPEN_TOPUP[Buka Halaman /topup]
-    OPEN_TOPUP --> INPUT_AMOUNT[Pilih Metode: Virtual Account / QRIS / E-Wallet<br/>Masukkan Nominal Top-Up]
-    INPUT_AMOUNT --> POST_ORDER[POST /api/v1/wallet/topup]
+    T_START([Pengguna Mengisi Saldo]) --> T_FORM[Buka Menu Top-Up: Pilih Nominal & Metode VA / QRIS]
+    T_FORM --> T_POST[POST /api/v1/wallet/topup]
     
-    POST_ORDER --> CALL_XENDIT[Wallet Service Menghubungi API Xendit Sandbox]
-    CALL_XENDIT --> XENDIT_RESP[Xendit Mengembalikan:<br/>Nomor VA / QR String / Invoice URL]
-    XENDIT_RESP --> SAVE_PENDING[Simpan ke wallet.topup_orders (Status: PENDING)]
-    SAVE_PENDING --> SHOW_PAYMENT[Tampilkan Detail Pembayaran & Countdown Kedaluwarsa di UI]
-
-    SHOW_PAYMENT --> USER_PAY[Pengguna Melakukan Transfer Bank / Scan QRIS]
-    USER_PAY --> XENDIT_DETECT[Sistem Bank / Xendit Mendeteksi Dana Masuk]
+    T_POST --> T_XENDIT_API[Wallet Service Memanggil API Xendit Sandbox]
+    T_XENDIT_API --> T_INVOICE[Xendit Menghasilkan Nomor VA / QR String Pembayaran]
     
-    XENDIT_DETECT --> WEBHOOK_POST[Xendit Mengirim Webhook Callback:<br/>POST /api/v1/wallet/webhook]
-    WEBHOOK_POST --> VERIFY_TOKEN{Validasi X-Callback-Token}
+    T_INVOICE --> T_SAVE_DB[Simpan Order di wallet.topup_orders Status: PENDING]
+    T_SAVE_DB --> T_UI_DISPLAY[Tampilkan Nomor Virtual Account & Timer Kedaluwarsa di Layar]
     
-    VERIFY_TOKEN -- Palsu / Tidak Sah --> REJECT_403[HTTP 403: Forbidden Callback]
-    VERIFY_TOKEN -- Sah --> CHECK_IDEMPOTENCY{Cek Idempotency Key di Redis}
-
-    CHECK_IDEMPOTENCY -- Sudah Diproses Sebelumnya --> ACK_SUCCESS[Acknowledge HTTP 200 (No-Op)]
-    CHECK_IDEMPOTENCY -- Request Baru --> TX_BEGIN[Buka Database Transaction PostgreSQL]
-
-    TX_BEGIN --> UPDATE_ORDER[Update Status Order: SUCCESS / PAID]
-    UPDATE_ORDER --> CREDIT_WALLET[Tambah Saldo: wallet.wallets.available_balance]
-    CREDIT_WALLET --> INSERT_LEDGER[Catat Transaksi: wallet.transactions (Type: TOPUP, Direction: IN)]
-    INSERT_LEDGER --> COMMIT_TX[Commit Transaksi & Simpan Key di Redis]
-    COMMIT_TX --> NOTIFY_USER[WebSocket / Realtime Update Saldo ke Frontend Pengguna]
-    NOTIFY_USER --> SUCCESS_END([Saldo Masuk & Siap Digunakan])
+    T_UI_DISPLAY --> T_USER_PAY[Nasabah Melakukan Transfer Bank / Scan QRIS via M-Banking]
+    T_USER_PAY --> T_BANK_SETTLE[Sistem Perbankan Mengonfirmasi Dana Masuk ke Rekening Escrow]
+    
+    T_BANK_SETTLE --> T_WEBHOOK_CALL[Xendit Mengirim Callback Webhook: POST /api/v1/wallet/webhook]
+    T_WEBHOOK_CALL --> T_VERIFY_TOKEN{Validasi Header X-Callback-Token}
+    
+    T_VERIFY_TOKEN -- Tidak Valid --> T_REJECT[HTTP 403: Forbidden Callback Ditolak]
+    
+    T_VERIFY_TOKEN -- Valid --> T_IDEMPOTENCY{Pengecekan Kunci Idempotensi di Redis}
+    T_IDEMPOTENCY -- Sudah Pernah Diproses --> T_ACK[HTTP 200: Abaikan Duplikasi Callback]
+    
+    T_IDEMPOTENCY -- Request Baru --> T_DB_TX[Buka Database Transaction PostgreSQL]
+    T_DB_TX --> T_UPDATE_ORDER[Update Status Order Menjadi PAID / SUCCESS]
+    T_UPDATE_ORDER --> T_CREDIT_WALLET[Tambah Saldo Tersedia di wallet.wallets]
+    T_CREDIT_WALLET --> T_LEDGER[Catat Mutasi di wallet.transactions: TOPUP / IN]
+    T_LEDGER --> T_COMMIT[Commit Database Transaction & Simpan Idempotency Key]
+    
+    T_COMMIT --> T_REALTIME[Push Notifikasi Saldo Masuk ke Dashboard Pengguna]
+    T_REALTIME --> T_END([Saldo Masuk & Siap Digunakan])
 ```
 
 ---
 
-## 5. Alur Mediasi Sengketa (Dispute & Arbitration Flow)
+## 5. Alur Mediasi & Putusan Sengketa (Dispute Resolution Flow)
 
-Flowchart penyelesaian perselisihan transaksi di bawah kendali *High Oracle Administrator* / *Arbiter Sanctum*.
+Diagram alur terperinci penanganan perselisihan transaksi escrow di bawah wewenang *High Oracle Administrator*.
 
 ```mermaid
 flowchart TD
-    DISPUTE_TRIGGER([Pembeli / Penjual Menemukan Masalah]) --> FORM_DISPUTE[Buka Modal 'Laporkan Sengketa' di Room Escrow]
-    FORM_DISPUTE --> FILL_REASON[Pilih Kategori Kendala & Tulis Kronologi]
-    FILL_REASON --> ATTACH_FILES[Unggah File Bukti screenshot/PDF via FileUpload]
-    ATTACH_FILES --> SUBMIT_DISPUTE[POST /api/v1/room/{id}/dispute]
+    D_START([Pengguna Mengalami Masalah]) --> D_MODAL[Klik 'Laporkan Sengketa' di Halaman Room]
+    D_MODAL --> D_INPUT[Pilih Kategori Masalah & Tuliskan Kronologi Rinci]
+    D_INPUT --> D_UPLOAD[Lampirkan Bukti Tangkapan Layar / Dokumen PDF via FileUpload]
+    D_UPLOAD --> D_SUBMIT[Kirim Sengketa: POST /api/v1/room/{id}/dispute]
 
-    SUBMIT_DISPUTE --> EVENT_BROKEN[Publish Event: Room.broken]
-    EVENT_BROKEN --> DISPUTE_SERVICE[Dispute Service Menangkap Event]
-    DISPUTE_SERVICE --> OPEN_CASE[Buka Kasus di dispute.disputes (Status: OPEN)]
-    OPEN_CASE --> ROOM_STATUS_UPDATE[Room Berubah ke Status: DISPUTED<br/>Dana Escrow Dibekukan Total]
-
-    ROOM_STATUS_UPDATE --> ADMIN_NOTIF[Notifikasi Masuk ke Antrean /admin#disputes]
-    ADMIN_NOTIF --> ADMIN_REVIEW[Arbiter Admin Membuka Detail Kasus & Bukti]
-
-    ADMIN_REVIEW --> INVESTIGATE[Arbiter Meneliti:<br/>1. Bukti Gambar & Dokumen Serah Terima<br/>2. Jejak Riwayat Pesan di In-Room Chat<br/>3. Kredensial & Batas Waktu]
+    D_SUBMIT --> D_FREEZE[Dana Escrow Dibekukan Total & Room Berstatus: DISPUTED]
+    D_FREEZE --> D_EVENT[Publish Event: Room.broken Melalui RabbitMQ]
     
-    INVESTIGATE --> HEAR_PARTIES{Perlu Bukti Tambahan?}
-    HEAR_PARTIES -- Ya --> REQUEST_MORE[Admin Mengirim Pesan Peringatan Resmi di Chat] --> INVESTIGATE
-    HEAR_PARTIES -- Cukup --> JUDGMENT_ACTION[Arbiter Memilih Tindakan Resolusi]
+    D_EVENT --> D_CASE[Dispute Service Membuka Kasus Baru di dispute.disputes]
+    D_CASE --> D_QUEUE[Kasus Masuk ke Antrean Mediasi /admin#disputes]
+    
+    D_QUEUE --> D_ADMIN_VIEW[Arbiter Administrator Memeriksa Berkas Kasus]
+    D_ADMIN_VIEW --> D_ANALYZE[Pemeriksaan: Bukti Serah Terima, Log Obrolan, dan Kredensial]
+    
+    D_ANALYZE --> D_DECISION{Pertimbangan & Putusan Arbiter}
 
-    JUDGMENT_ACTION -- Refund Pembeli --> RESOLVE_BUYER[POST /api/v1/dispute/{id}/resolve<br/>Decision: REFUND_BUYER]
-    JUDGMENT_ACTION -- Release Penjual --> RESOLVE_SELLER[POST /api/v1/dispute/{id}/resolve<br/>Decision: RELEASE_TO_SELLER]
+    D_DECISION -- Pelanggaran oleh Penjual --> D_REFUND[Eksekusi Putusan: REFUND_BUYER]
+    D_DECISION -- Kewajiban Penjual Terbukti Sah --> D_RELEASE[Eksekusi Putusan: RELEASE_TO_SELLER]
 
-    RESOLVE_BUYER --> RABBIT_RESOLVED[Publish Event: judgment.resolved]
-    RESOLVE_SELLER --> RABBIT_RESOLVED
+    D_REFUND --> D_PUB_RESOLVED[Publish Event: judgment.resolved ke RabbitMQ]
+    D_RELEASE --> D_PUB_RESOLVED
 
-    RABBIT_RESOLVED --> WALLET_EXECUTE[Wallet Service Mengeksekusi Ledger]:
-    WALLET_EXECUTE --> UNLOCK_FINANCE[Pencairan Dana Otomatis ke Dompet Pemenang Sengketa]
-    UNLOCK_FINANCE --> CASE_CLOSED[Status Sengketa: RESOLVED & Status Room: COMPLETED/REFUNDED]
-    CASE_CLOSED --> TOAST_NOTIF[Toast Notifikasi Hasil Keputusan Muncul di Akun Kedua Pengguna]
-    TOAST_NOTIF --> END_DISPUTE([Kasus Selesai])
+    D_PUB_RESOLVED --> D_WALLET_SETTLE[Wallet Service Mengeksekusi Rekonsiliasi Saldo]
+    D_WALLET_SETTLE --> D_TRANSFER_WINNER[Pencairan Saldo Otomatis ke Dompet Pihak yang Berhak]
+    
+    D_TRANSFER_WINNER --> D_CLOSE_CASE[Kasus Status: RESOLVED | Room Status: CLOSED]
+    D_CLOSE_CASE --> D_NOTIF[Kirim Toast & Notifikasi Keputusan Resmi ke Kedua Pengguna]
+    D_NOTIF --> D_END([Sengketa Ditutup Adil])
 ```
