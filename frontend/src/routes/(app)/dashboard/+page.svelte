@@ -52,8 +52,8 @@
     TOPUP: '↓',
     WITHDRAW: '↑',
     P2P_TRANSFER: '→',
-    ESCROW_HOLD: '🔒',
-    ESCROW_RELEASE: '🔓',
+    ESCROW_HOLD: '⊘',
+    ESCROW_RELEASE: '⊙',
     ESCROW_REFUND: '↩',
     FEE: '−'
   };

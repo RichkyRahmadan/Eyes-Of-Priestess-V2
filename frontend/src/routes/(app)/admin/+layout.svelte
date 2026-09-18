@@ -32,8 +32,8 @@
 {#if !isAuthorized && $currentUser}
   <!-- 403 Forbidden State -->
   <div class="bg-[var(--color-surface-card)] border border-[var(--color-error)]/30 rounded-[var(--radius-xl)] p-8 text-center max-w-lg mx-auto my-12">
-    <div class="w-12 h-12 rounded-full bg-[var(--color-error)]/10 text-[var(--color-error)] flex items-center justify-center mx-auto text-xl font-bold mb-4">
-      ✕
+    <div class="w-12 h-12 rounded-full bg-[var(--color-error)]/10 text-[var(--color-error)] flex items-center justify-center mx-auto mb-4">
+      <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 256 256" fill="currentColor"><path d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z"/></svg>
     </div>
     <h2 class="font-display text-[var(--text-title-lg)] text-[var(--color-ink)]">
       Akses Ditolak (403 Forbidden)

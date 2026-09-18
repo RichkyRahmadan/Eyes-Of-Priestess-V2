@@ -92,7 +92,9 @@
             href="/admin"
             class="flex items-center gap-3 px-3 py-2.5 rounded-[var(--radius-md)] font-sans text-[var(--text-body-md)] transition-colors duration-150 {isActive('/admin') ? 'bg-[var(--color-primary)] text-white font-medium' : 'text-[var(--color-primary)] hover:bg-[var(--color-primary)]/10 font-medium'}"
           >
-            <span class="w-5 h-5 flex items-center justify-center text-sm">⚡</span>
+            <span class="w-5 h-5 flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 256 256" fill="currentColor"><path d="M208,40H48A16,16,0,0,0,32,56V120c0,88,88,128,88,128s88-40,88-128V56A16,16,0,0,0,208,40Zm-80,188c-24.31-13.62-64-44.59-64-108V56H128Z"/></svg>
+            </span>
             <span class="flex-1">Admin Sanctum</span>
             <span class="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-black/10">{$currentUser.role}</span>
           </a>
@@ -182,7 +184,10 @@
             onclick={() => (mobileMenuOpen = false)}
             class="px-3 py-3 rounded-[var(--radius-md)] font-sans text-[var(--text-body-md)] text-[var(--color-primary)] font-medium hover:bg-[var(--color-surface-soft)] flex items-center justify-between"
           >
-            <span>⚡ Admin Sanctum</span>
+            <span class="flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 256 256" fill="currentColor"><path d="M208,40H48A16,16,0,0,0,32,56V120c0,88,88,128,88,128s88-40,88-128V56A16,16,0,0,0,208,40Zm-80,188c-24.31-13.62-64-44.59-64-108V56H128Z"/></svg>
+              Admin Sanctum
+            </span>
             <span class="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-black/10">{$currentUser.role}</span>
           </a>
         {/if}

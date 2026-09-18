@@ -196,7 +196,7 @@
     <div class="bg-[var(--color-surface-card)] rounded-[var(--radius-xl)] overflow-hidden border border-[var(--color-hairline-soft)]">
       {#if disputes.length === 0}
         <div class="p-12 text-center text-[var(--color-muted)] text-[var(--text-body-sm)]">
-          ✓ Seluruh sengketa telah diselesaikan oleh Arbiter.
+          Seluruh sengketa telah diselesaikan oleh Arbiter.
         </div>
       {:else}
         <div class="divide-y divide-[var(--color-hairline-soft)]">
@@ -229,14 +229,14 @@
                   disabled={resolvingId === dispute.id}
                   class="h-8 px-3 bg-[var(--color-error)] hover:bg-[var(--color-error)]/90 text-white rounded-[var(--radius-md)] text-xs font-sans font-medium transition-colors disabled:opacity-50"
                 >
-                  ↩ Refund Pembeli
+                  Refund Pembeli
                 </button>
                 <button
                   onclick={() => handleDecision(dispute.id, 'RELEASE')}
                   disabled={resolvingId === dispute.id}
                   class="h-8 px-3 bg-[var(--color-success)] hover:bg-[var(--color-success)]/90 text-white rounded-[var(--radius-md)] text-xs font-sans font-medium transition-colors disabled:opacity-50"
                 >
-                  ✓ Lepas ke Penjual
+                  Lepas ke Penjual
                 </button>
               </div>
             </div>
@@ -281,7 +281,7 @@
                   </span>
                 </td>
                 <td class="py-3 px-4 font-mono font-medium text-[var(--color-ink)]">
-                  ★ {u.score}
+                  {u.score} / 5.0
                 </td>
                 <td class="py-3 px-4">
                   <span class="inline-block px-2 py-0.5 rounded text-[11px] font-semibold {u.status === 'ACTIVE' ? 'bg-[var(--color-success)]/10 text-[var(--color-success)]' : u.status === 'REPORTED' ? 'bg-[var(--color-warning)]/10 text-[var(--color-warning)]' : 'bg-[var(--color-error)]/10 text-[var(--color-error)]'}">
