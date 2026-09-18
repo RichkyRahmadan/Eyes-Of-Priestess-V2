@@ -188,28 +188,50 @@ Untuk keperluan demonstrasi, evaluasi, dan pengujian fitur aplikasi, gunakan aku
 
 ## 🏛️ System Architecture & Flowchart
 
-Diagram topologi arsitektur dan alur interaksi layanan microservices dapat dilihat secara detail pada dokumen:
+Dokumentasi lengkap diagram alur sistem dan diagram arsitektur microservices berbasis **Mermaid** tersedia pada:
+📖 **[`Docs/07-flowchart-system.md`](./Docs/07-flowchart-system.md)**
 📖 **[`Docs/01-architecture-overview.md`](./Docs/01-architecture-overview.md)**
 
-### Diagram Alur Escrow Room (Covenant Lifecycle)
+### 1. Diagram Topologi Arsitektur Sistem
+
+```mermaid
+flowchart TB
+    CLIENT["SvelteKit SPA Client (:5173)"]
+    GATEWAY["Kong API Gateway (:8000)"]
+    AUTH["Auth Service (:8081)"]
+    WALLET["Wallet Service (:8082)"]
+    ROOM["Room Service (:8083)"]
+    CHAT["Chat Service (:8084)"]
+    DISPUTE["Dispute Service (:8085)"]
+    RABBIT["RabbitMQ (eop.events)"]
+    REDIS["Redis (Cache & Blacklist)"]
+    PG[("PostgreSQL 15 (5 Schemas)")]
+    XENDIT["Xendit Payment Gateway"]
+
+    CLIENT --> GATEWAY
+    GATEWAY --> AUTH & WALLET & ROOM & CHAT & DISPUTE
+    AUTH & WALLET & ROOM & CHAT & DISPUTE --> PG
+    AUTH & WALLET --> REDIS
+    ROOM & DISPUTE & WALLET <--> RABBIT
+    WALLET <--> XENDIT
 ```
-[Pembeli & Penjual]
-        │
-        ▼ Buat Room Escrow
-[Status: WAITING_PAYMENT]
-        │
-        ▼ Pembeli Bayar (Saldo Escrow Terkunci)
-[Status: FUNDED]
-        │
-        ▼ Penjual Menyerahkan Akun/Barang/Bukti
-[Status: DELIVERED]
-        │
-   ┌────┴──────────────────────────┐
-   ▼ (Pembeli Puas / Auto-Release)  ▼ (Timbul Masalah)
-[Status: COMPLETED]              [Status: DISPUTED]
-(Dana Cair ke Penjual)                  │
-                                        ▼ Arbiter Admin Menengahi
-                                 [Refund / Release]
+
+### 2. Diagram Alur Escrow Room (Covenant Lifecycle)
+
+```mermaid
+flowchart TD
+    A[Mulai Transaksi] --> B[Buat Room Escrow: WAITING_PAYMENT]
+    B --> C[Pembeli Kunci Dana + PIN 6 Digit]
+    C --> D[Dana Masuk Escrow Balance: FUNDED]
+    D --> E[Penjual Kirim Barang & Upload Bukti: DELIVERED]
+    E --> F{Pemeriksaan Barang}
+    F -- Sesuai --> G[Pembeli Konfirmasi + PIN: COMPLETED]
+    G --> H[Dana Dilepas ke Saldo Penjual]
+    F -- Masalah --> I[Buka Sengketa: DISPUTED]
+    I --> J[Arbiter / Admin Menengahi Kasus]
+    J --> K{Keputusan Arbiter}
+    K -- Refund --> L[Dana Dikembalikan ke Pembeli]
+    K -- Release --> H
 ```
 
 ### OpenAPI / Swagger Documentation
