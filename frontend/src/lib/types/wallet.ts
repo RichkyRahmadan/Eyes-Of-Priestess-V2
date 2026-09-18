@@ -33,6 +33,7 @@ export type TransactionType =
 export type TransactionStatus = 'PENDING' | 'SUCCESS' | 'FAILED';
 
 export interface TopUpOrder {
+  id?: string;
   orderId: string;
   amount: number;
   method: string;
@@ -40,6 +41,7 @@ export interface TopUpOrder {
   virtualAccountNumber?: string;
   status: string;
   expiryTime: string;
+  invoiceUrl?: string;
 }
 
 export interface BankAccount {

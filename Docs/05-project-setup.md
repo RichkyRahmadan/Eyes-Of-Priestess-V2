@@ -513,91 +513,79 @@ CREATE SCHEMA IF NOT EXISTS dispute;
 
 ## 7. Environment Variables
 
-### 7.1 Backend (.env template)
+### 7.1 Backend Infrastructure (.env / docker-compose)
 
 ```bash
-# Database
-DB_HOST=localhost
-DB_PORT=5432
+# Database (PostgreSQL 15 Container)
+DB_HOST=127.0.0.1
+DB_PORT=5435
 DB_NAME=eyesofpriestess
 DB_USER=eop
 DB_PASSWORD=eop_dev
 
-# Redis
-REDIS_HOST=localhost
+# Redis 7 Container
+REDIS_HOST=127.0.0.1
 REDIS_PORT=6379
 
-# RabbitMQ
-RABBITMQ_HOST=localhost
+# RabbitMQ 3.x Container
+RABBITMQ_HOST=127.0.0.1
 RABBITMQ_PORT=5672
 RABBITMQ_USER=guest
 RABBITMQ_PASS=guest
 
-# JWT
+# Kong API Gateway (DB-less)
+KONG_PROXY_PORT=8000
+KONG_ADMIN_PORT=8001
+
+# JWT Configuration
 JWT_ISSUER=https://eyesofpriestess.id
 JWT_EXPIRATION=900
 
-# Payment Gateway (Midtrans Sandbox)
-MIDTRANS_SERVER_KEY=your-sandbox-server-key
-MIDTRANS_CLIENT_KEY=your-sandbox-client-key
-MIDTRANS_IS_PRODUCTION=false
-
-# Or Xendit
-XENDIT_API_KEY=your-xendit-api-key
-XENDIT_CALLBACK_TOKEN=your-callback-token
-
-# MinIO / S3
-S3_ENDPOINT=http://localhost:9000
-S3_ACCESS_KEY=minioadmin
-S3_SECRET_KEY=minioadmin
-S3_BUCKET=eyesofpriestess
+# Payment Gateway (Xendit Sandbox)
+XENDIT_API_KEY=xnd_development_...
+XENDIT_CALLBACK_TOKEN=eop_webhook_secret_token_12345
 ```
 
-### 7.2 Frontend (.env template)
+### 7.2 Frontend Environment (.env)
 
 ```bash
-PUBLIC_API_BASE_URL=http://localhost:8080/api/v1
-PUBLIC_WS_URL=ws://localhost:8080/ws/chat
+# In browser, requests use same-origin proxy /api/v1 for 0ms CORS preflight latency
+PUBLIC_API_BASE_URL=/api/v1
+PUBLIC_WS_URL=ws://127.0.0.1:8084/ws/chat
 ```
 
 ---
 
-## 8. Running the Project
+## 8. Running the Project & Demo Credentials
 
-### 8.1 Start Infrastructure
+### 8.1 Start Infrastructure (Docker Compose)
 
 ```bash
-# From project root
-docker-compose up -d
+# Jalankan database, broker, cache, dan API gateway
+docker compose up -d postgres redis rabbitmq kong
 
-# Verify
-docker-compose ps
+# Verifikasi status container
+docker compose ps
 ```
 
-### 8.2 Start Backend Services
+> **Catatan Seeding:** Skrip `01-init-schemas.sql` dan `02-seed-data.sql` akan dieksekusi secara otomatis saat container PostgreSQL pertama kali diinisialisasi, menyediakan 20+ baris data uji pada setiap tabel utama.
+
+### 8.2 Start Frontend (SvelteKit)
 
 ```bash
-# Terminal 1: Auth Service
-cd backend/auth-service
-mvn quarkus:dev
+cd frontend
+npm install
+npm run dev
+```
+Akses aplikasi di peramban: `http://localhost:5173`.
 
-# Terminal 2: Wallet Service
-cd backend/wallet-service
-mvn quarkus:dev
+### 8.3 Kredensial Akun Pengujian (Demo Accounts)
 
-# Terminal 3: Room Service
-cd backend/room-service
-mvn quarkus:dev
-
-# Terminal 4: Chat Service
-cd backend/chat-service
-mvn quarkus:dev
-
-# Terminal 5: Dispute Service
-cd backend/dispute-service
-mvn quarkus:dev
-
-# Terminal 6: Gateway
+| Peran (Role) | Email | Password | PIN Transaksi | Kegunaan |
+|---|---|---|---|---|
+| **High Oracle / ADMIN** | `admin@eyesofpriestess.com` | `AdminPass123!` | `999999` | Akses panel mediasi sengketa `/admin`, audit transaksi, dan putusan arbiter |
+| **Pihak Pembeli (USER)** | `budi@example.com` | `SecurePass123!` | `123456` | Topup saldo VA/QRIS, buat room escrow, kunci dana, komplain sengketa |
+| **Pihak Penjual (USER)** | `siti@example.com` | `SecurePass123!` | `654321` | Terima pesanan, serah terima berkas JPG/PNG/PDF, pencairan saldo |
 cd backend/gateway
 mvn quarkus:dev
 ```

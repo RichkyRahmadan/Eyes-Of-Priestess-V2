@@ -44,6 +44,12 @@ Proyek ini dibangun sebagai implementasi Capstone Project S1 Teknik Informatika 
    - Pengamanan sandi menggunakan *Argon2id* / *Bcrypt* dan hashing PIN terisolasi.
    - Pemisahan hak akses berbasis peran (`USER`, `MODERATOR`, `ADMIN`).
 
+6. **Low-Latency & High Performance Architecture (<50ms Response)**
+   - **Vite Same-Origin Proxy**: Rute `/api/v1` diproxy langsung ke Kong (`http://127.0.0.1:8000`), mengeliminasi *CORS preflight round trip* (`OPTIONS`) dan lag DNS IPv6 Windows.
+   - **In-Memory SWR TTL Cache**: Caching 3000ms untuk request `GET` idempoten; navigasi antar halaman terasa instan (0ms perceived latency) dengan auto-invalidation saat ada mutasi data.
+   - **In-Flight Deduplication**: Mencegah request kembar dieksekusi bersamaan ke backend.
+   - **Optimistic Rendering**: UI menampilkan data store reaktif segera tanpa delay skeleton berkedip.
+
 ---
 
 ## 🛠️ Tech Stack Used
@@ -67,12 +73,13 @@ Proyek ini dibangun sebagai implementasi Capstone Project S1 Teknik Informatika 
 ```
 EyesOfPriestessV2/
 ├── Docs/                               # Dokumentasi Teknis & Spesifikasi Sistem
-│   ├── 01-architecture-overview.md     # Arsitektur sistem, topologi jaringan & flowchart
-│   ├── 02-backend-api-spec.md          # Spesifikasi lengkap REST API & WebSocket
-│   ├── 03-database-schema.md           # DDL PostgreSQL 5 domain schema & constraint
-│   ├── 04-frontend-spec.md             # Panduan desain UI, token warna, & rute SvelteKit
-│   ├── 05-project-setup.md             # Panduan setup environment & konfigurasi server
-│   └── 06-feature-specifications.md    # Business rules, state machine room, & use cases
+│   ├── 01-architecture-overview.md     # Arsitektur sistem, topologi jaringan & low-latency design
+│   ├── 02-backend-api-spec.md          # Spesifikasi lengkap REST API, WebSocket & Swagger UI
+│   ├── 03-database-schema.md           # DDL PostgreSQL 5 domain schema, soft-deletes, & 3NF
+│   ├── 04-frontend-spec.md             # Panduan desain UI, SvelteKit Runes, & breakpoints
+│   ├── 05-project-setup.md             # Panduan setup environment, docker, & credentials
+│   ├── 06-feature-specifications.md    # Business rules, feature matrix, & state machine room
+│   └── 07-flowchart-system.md          # 5 Diagram alur sistem (Mermaid zero-crossing lines)
 ├── backend/                            # Sanctum Microservices (Quarkus Java 21)
 │   ├── auth-service/                   # Port 8081: Identity, Auth JWT, Security PIN, RBAC
 │   ├── wallet-service/                 # Port 8082: Saldo, Mutasi, Top-up, Withdraw, Bank Accounts

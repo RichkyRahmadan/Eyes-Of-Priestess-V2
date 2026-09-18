@@ -1,7 +1,7 @@
 # EyesOfPriestess — Backend API Specification
 
 > **Version:** 1.0  
-> **Base URL:** `http://localhost:8080` (Gateway)  
+> **Base URL:** `http://localhost:8000` (Kong API Gateway)  
 > **Auth:** Bearer JWT (RS256)  
 > **Content-Type:** `application/json`  
 > **Design System:** Warm Editorial (Cream Canvas + Coral Accent)
@@ -1008,12 +1008,25 @@ Add comment ke dispute.
 
 | Endpoint | Limit |
 |---|---|
-| `/auth/login` | 5 requests / minute / IP |
-| `/auth/register` | 3 requests / hour / IP |
-| `/auth/verify-pin` | 3 attempts / 15 min / user |
-| `/wallet/transfer` | 10 requests / minute / user |
-| `/room/` (create) | 20 requests / hour / user |
-| `/ws/**` | 1 connection / user |
+| `/auth/login` | 10 requests / minute / IP |
+| `/auth/register` | 5 requests / hour / IP |
+| `/auth/verify-pin` | 5 attempts / 15 min / user |
+| `/wallet/transfer` | 30 requests / minute / user |
+| `/room/` (create) | 30 requests / hour / user |
+| Gateway General Limit | 600 requests / minute (DB-less Kong) |
+
+---
+
+## 9. Interactive API Documentation (Swagger / OpenAPI)
+
+Setiap microservice mengekspos OpenAPI 3.0 specification dan antarmuka Swagger UI interaktif untuk pengujian endpoint secara langsung:
+
+| Service | Direct Swagger UI URL | Kong Gateway Proxied URL |
+|---|---|---|
+| **Auth Service** | `http://localhost:8081/q/swagger-ui` | `http://localhost:8000/api/v1/auth/q/swagger-ui` |
+| **Wallet Service** | `http://localhost:8082/q/swagger-ui` | `http://localhost:8000/api/v1/wallet/q/swagger-ui` |
+| **Room Escrow Service** | `http://localhost:8083/q/swagger-ui` | `http://localhost:8000/api/v1/room/q/swagger-ui` |
+| **Dispute Service** | `http://localhost:8085/q/swagger-ui` | `http://localhost:8000/api/v1/dispute/q/swagger-ui` |
 
 ---
 

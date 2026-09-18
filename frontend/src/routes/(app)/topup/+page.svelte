@@ -41,9 +41,10 @@
         bankCode: method === 'VA' ? bankCode : undefined
       }) as any;
       const order = res?.data || res;
+      const orderIdStr = order.id || order.orderId || 'ORD-' + Math.floor(Math.random() * 100000);
       activeOrder = {
-        id: order.id || order.orderId || 'ORD-' + Math.floor(Math.random() * 100000),
-        orderId: order.id || order.orderId || 'ORD-' + Math.floor(Math.random() * 100000),
+        id: orderIdStr,
+        orderId: orderIdStr,
         amount: order.amount || num,
         method: order.paymentMethod || order.method || method,
         bankCode: order.bankCode || (method === 'VA' ? bankCode : undefined),
@@ -52,7 +53,7 @@
         invoiceUrl: order.invoiceUrl || order.paymentDetails?.invoice_url,
         expiryTime: '24 Jam'
       };
-      addNotification({ type: 'success', title: 'Instruksi Pembayaran Dibuat', message: `Order #${activeOrder.orderId.slice(0, 8)}` });
+      addNotification({ type: 'success', title: 'Instruksi Pembayaran Dibuat', message: `Order #${orderIdStr.slice(0, 8)}` });
     } catch (err: unknown) {
       const apiErr = err as { message?: string };
       error = apiErr?.message ?? 'Gagal membuat invoice top up';
@@ -65,10 +66,12 @@
   let webhookSuccess = $state(false);
 
   async function simulateWebhookPayment() {
-    if (!activeOrder?.id) return;
+    if (!activeOrder) return;
+    const orderIdentifier = activeOrder.orderId || activeOrder.id || '';
+    if (!orderIdentifier) return;
     webhookLoading = true;
     try {
-      const res = await fetch('http://localhost:8000/api/v1/wallet/webhook/xendit', {
+      const res = await fetch('/api/v1/wallet/webhook/xendit', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -77,7 +80,7 @@
         body: JSON.stringify({
           event: 'invoice.paid',
           id: 'inv_sim_' + Math.random().toString(36).substring(2, 8),
-          external_id: `TopUpOrder-${activeOrder.id}`,
+          external_id: `TopUpOrder-${orderIdentifier}`,
           status: 'PAID',
           amount: activeOrder.amount,
           paid_amount: activeOrder.amount,
@@ -141,7 +144,7 @@
           </p>
         </div>
         {#if webhookSuccess}
-          <Badge variant="emerald">Pembayaran Lunas (PAID)</Badge>
+          <Badge variant="success">Pembayaran Lunas (PAID)</Badge>
         {:else}
           <Badge variant="amber">Menunggu Pembayaran</Badge>
         {/if}

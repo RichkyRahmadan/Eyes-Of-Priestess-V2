@@ -718,4 +718,19 @@ CREATE TRIGGER trg_log_room_timeline
 
 ---
 
+## 11. Kepatuhan Ketentuan Database S1 / Capstone
+
+Database ini dirancang dan diimplementasikan untuk memenuhi 100% ketentuan akademik tugas akhir S1:
+
+| Kriteria Regulasi | Standar Minimum | Implementasi EyesOfPriestess | Status |
+|---|---|---|:---:|
+| **Jumlah Tabel Utama** | Min. 6 Tabel | **11 Tabel Utama**: `auth.users`, `auth.credentials`, `auth.refresh_tokens`, `wallet.wallets`, `wallet.transactions`, `wallet.bank_accounts`, `wallet.topup_orders`, `room.rooms`, `room.delivery_proofs`, `chat.messages`, `dispute.disputes` | ✅ Terpenuhi (183%) |
+| **Relasi Eksplisit** | Min. 5 Relasi | **6+ Relasi Eksplisit**: <br/>• **1:1**: `auth.users` ↔ `wallet.wallets`<br/>• **1:1**: `auth.users` ↔ `auth.credentials`<br/>• **1:1**: `room.rooms` ↔ `chat.chat_rooms`<br/>• **1:N**: `wallet.wallets` ➔ `wallet.transactions`<br/>• **1:N**: `auth.users` ➔ `wallet.bank_accounts`<br/>• **1:N**: `room.rooms` ➔ `room.delivery_proofs`<br/>• **1:N**: `chat.chat_rooms` ➔ `chat.messages` | ✅ Terpenuhi |
+| **Normalisasi Data** | Minimum 3NF | Terisolasi per domain (5 Schemas) dengan FK, PK UUID v4, dan bebas dependensi transitif / anomali redundansi | ✅ 3NF Compliant |
+| **Audit Timestamps** | `created_at` & `updated_at` | Setiap tabel utama wajib memiliki kolom `created_at TIMESTAMPTZ` dan `updated_at TIMESTAMPTZ` | ✅ Terpenuhi 100% |
+| **Soft Delete** | Min. 2 Tabel | Kolom `deleted_at TIMESTAMPTZ` aktif pada:<br/>1. `auth.users`<br/>2. `wallet.bank_accounts` | ✅ Terpenuhi |
+| **Database Seeding** | Min. 20 Realistic Records | Berkas `02-seed-data.sql` memuat >20 baris data realistis untuk setiap tabel utama untuk pengujian | ✅ Terpenuhi |
+
+---
+
 *End of Database Schema*

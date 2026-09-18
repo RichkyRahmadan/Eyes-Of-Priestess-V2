@@ -129,17 +129,17 @@ async function executeFetch<T>(
   cacheKey: string
 ): Promise<T> {
   const token = authStoreValueToken();
+  const { bypassCache, cacheTtlMs = 3000, ...fetchOptions } = options;
 
+  const isFormData = typeof FormData !== 'undefined' && fetchOptions.body instanceof FormData;
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
+    ...(!isFormData ? { 'Content-Type': 'application/json' } : {}),
     ...((options.headers as Record<string, string>) || {})
   };
 
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
-
-  const { bypassCache, cacheTtlMs = 3000, ...fetchOptions } = options;
 
   const response = await fetch(url, { ...fetchOptions, method, headers });
 
