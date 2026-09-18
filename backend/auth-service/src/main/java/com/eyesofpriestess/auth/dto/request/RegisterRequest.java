@@ -1,5 +1,7 @@
 package com.eyesofpriestess.auth.dto.request;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -7,6 +9,7 @@ import jakarta.validation.constraints.Size;
 /**
  * RegisterRequest — Payload for POST /seal/forge (User Registration).
  */
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class RegisterRequest {
 
     @NotBlank(message = "Phone resonance must not be empty")
@@ -15,6 +18,13 @@ public class RegisterRequest {
         message = "Phone must be in valid format (e.g. +628123456789)"
     )
     public String phone;
+
+    @JsonProperty("phoneNumber")
+    public void setPhoneNumber(String phoneNumber) {
+        if (this.phone == null || this.phone.isBlank()) {
+            this.phone = phoneNumber;
+        }
+    }
 
     public String email;
 

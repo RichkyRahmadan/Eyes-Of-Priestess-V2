@@ -41,6 +41,13 @@ public class AuthExceptionMapper implements ExceptionMapper<Exception> {
                 .build();
         }
 
+        if (exception instanceof IllegalArgumentException iaEx) {
+            return Response
+                .status(Response.Status.BAD_REQUEST)
+                .entity(ApiResponse.fail("INVALID_ARGUMENT", iaEx.getMessage(), null))
+                .build();
+        }
+
         // Unexpected errors
         LOG.errorf(exception, "Unexpected error in Seal Sanctum: %s", exception.getMessage());
         return Response

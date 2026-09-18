@@ -8,6 +8,7 @@ import java.util.UUID;
 
 public class RoomResponse {
     public UUID id;
+    public String roomCode;
     public String title;
     public String description;
     public UUID initiatorId;
@@ -32,7 +33,9 @@ public class RoomResponse {
     public static RoomResponse from(Room c) {
         RoomResponse r = new RoomResponse();
         r.id = c.id;
+        r.roomCode = c.roomCode;
         r.title = c.title;
+
         r.description = c.description;
         r.initiatorId = c.initiatorId;
         r.initiatorRole = c.initiatorRole;

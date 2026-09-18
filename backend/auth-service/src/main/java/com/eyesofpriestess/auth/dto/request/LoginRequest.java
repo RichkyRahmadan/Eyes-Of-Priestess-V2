@@ -8,13 +8,24 @@ import jakarta.validation.constraints.Pattern;
  */
 public class LoginRequest {
 
-    @NotBlank(message = "Phone resonance must not be empty")
-    @Pattern(regexp = "^\\+?[0-9]{10,15}$", message = "Invalid phone format")
     public String phone;
+    public String email;
+    public String identifier;
 
     @NotBlank(message = "Password must not be empty")
     public String password;
 
     /** Device ID for session tracking. */
     public String deviceId;
+
+    public String getResolvedIdentifier() {
+        if (phone != null && !phone.isBlank()) return phone.trim();
+        if (email != null && !email.isBlank()) return email.trim();
+        if (identifier != null && !identifier.isBlank()) return identifier.trim();
+        return "";
+    }
+
+    public boolean isEmail() {
+        return getResolvedIdentifier().contains("@");
+    }
 }

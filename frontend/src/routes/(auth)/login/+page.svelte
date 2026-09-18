@@ -17,13 +17,13 @@
     errors = {};
     globalError = '';
 
-    if (!email) errors.email = 'Email wajib diisi';
+    if (!email) errors.email = 'Email atau Nomor HP wajib diisi';
     if (!password) errors.password = 'Password wajib diisi';
     if (Object.keys(errors).length) return;
 
     loading = true;
     try {
-      const res = await authApi.login({ email, password }) as {
+      const res = await authApi.login({ identifier: email, password }) as {
         user: import('$lib/types').User;
         tokens: import('$lib/types').AuthTokens;
       };
@@ -65,10 +65,10 @@
   {/if}
 
   <Input
-    label="Email"
-    type="email"
+    label="Email atau Nomor HP"
+    type="text"
     bind:value={email}
-    placeholder="nama@email.com"
+    placeholder="nama@email.com atau 08xxxxxxxxxx"
     error={errors.email}
     required
     id="login-email"

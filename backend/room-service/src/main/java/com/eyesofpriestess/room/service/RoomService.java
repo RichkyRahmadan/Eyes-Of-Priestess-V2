@@ -8,6 +8,7 @@ import com.eyesofpriestess.room.event.RoomBrokenEvent;
 import com.eyesofpriestess.room.event.RoomCompletedEvent;
 import com.eyesofpriestess.room.exception.RoomException;
 import com.eyesofpriestess.room.repository.*;
+import io.quarkus.hibernate.reactive.panache.common.WithSession;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -62,8 +63,9 @@ public class RoomService {
         room.title = req.title;
         room.description = req.description;
         room.initiatorId = initiatorId;
-        room.initiatorRole = req.initiatorRole.toUpperCase();
+        room.initiatorRole = req.getInitiatorRoleNormalized();
         room.amount = req.amount;
+        room.roomCode = "ROOM-" + generateInvitationCode().substring(0, 8);
         room.status = Room.CovenantStatus.FORGED;
         room.autoReleaseHours = req.autoReleaseHours != null ? req.autoReleaseHours : 48;
         room.expiresAt = Instant.now().plusSeconds(7 * 86400); // 7 days invitation window
@@ -292,11 +294,13 @@ public class RoomService {
 
     // ─── 8. QUERY rooms ───────────────────────────────────────────────────
 
+    @WithSession
     public Uni<List<RoomResponse>> getPilgrimCovenants(UUID userId, int page, int size) {
         return covenantRepo.findByPilgrimId(userId, page, size)
                 .map(list -> list.stream().map(RoomResponse::from).toList());
     }
 
+    @WithSession
     public Uni<RoomResponse> getCovenant(UUID roomId) {
         return covenantRepo.findByIdSafe(roomId)
                 .map(opt -> opt.map(RoomResponse::from)

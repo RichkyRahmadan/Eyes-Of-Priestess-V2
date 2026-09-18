@@ -11,6 +11,7 @@ import com.eyesofpriestess.auth.exception.AuthException;
 import com.eyesofpriestess.auth.repository.UserRepository;
 import com.eyesofpriestess.auth.repository.SessionRepository;
 import io.quarkus.elytron.security.common.BcryptUtil;
+import io.quarkus.hibernate.reactive.panache.common.WithSession;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -100,7 +101,7 @@ public class AuthService {
                     "userId", user.id.toString(),
                     "phone", user.phone,
                     "status", user.status.name().toLowerCase(),
-                    "attunedAt", user.attunedAt.toString()
+                    "attunedAt", (user.attunedAt != null ? user.attunedAt : Instant.now()).toString()
                 ));
     }
 
@@ -108,7 +109,12 @@ public class AuthService {
 
     @WithTransaction
     public Uni<AuthResponse> rite(LoginRequest req) {
-        return RedisService.getLoginFailCount(req.phone)
+        String identifier = req.getResolvedIdentifier();
+        if (identifier == null || identifier.isBlank()) {
+            throw AuthException.badRequest("MISSING_IDENTIFIER", "Email or phone number must be provided");
+        }
+
+        return RedisService.getLoginFailCount(identifier)
                 .flatMap(failCount -> {
                     if (failCount >= MAX_LOGIN_ATTEMPTS) {
                         throw AuthException.tooManyRequests(
@@ -116,7 +122,9 @@ public class AuthService {
                             "Too many failed rites. The sanctum is sealed for 30 minutes."
                         );
                     }
-                    return pilgrimRepo.findByPhone(req.phone);
+                    return req.isEmail()
+                        ? pilgrimRepo.findByEmail(identifier)
+                        : pilgrimRepo.findByPhone(identifier);
                 })
                 .flatMap(pilgrimOpt -> {
                     User user = pilgrimOpt.orElseThrow(() ->
@@ -130,9 +138,9 @@ public class AuthService {
                     }
 
                     if (!BcryptUtil.matches(req.password, user.passwordHash)) {
-                        return RedisService.incrementLoginFail(req.phone)
+                        return RedisService.incrementLoginFail(identifier)
                                 .flatMap(count -> {
-                                    LOG.warnf("Failed rite for %s, attempt %d", req.phone, count);
+                                    LOG.warnf("Failed rite for %s, attempt %d", identifier, count);
                                     throw AuthException.unauthorized("INVALID_CREDENTIALS",
                                         "The resonance does not match the seal");
                                 });
@@ -143,8 +151,8 @@ public class AuthService {
 
                     // Determine roles
                     Set<String> roles = user.isOracle
-                        ? Set.of("User", "Oracle")
-                        : Set.of("User");
+                        ? Set.of("User", "user", "Oracle", "oracle", "admin", "ADMIN")
+                        : Set.of("User", "user");
 
                     String accessSeal = jwtService.issueAccessSeal(
                         user.id, user.phone, user.isOracle, roles
@@ -161,7 +169,7 @@ public class AuthService {
                         Instant.now().plusSeconds(jwtService.getRefreshExpiry())
                     );
 
-                    return RedisService.clearLoginFail(req.phone)
+                    return RedisService.clearLoginFail(identifier)
                             .flatMap(v -> sessionRepo.persist(session))
                             .flatMap(s -> pilgrimRepo.persist(user))
                             .map(p -> AuthResponse.issued(
@@ -177,8 +185,17 @@ public class AuthService {
 
     @WithTransaction
     public Uni<AuthResponse> renew(RefreshTokenRequest req) {
-        String jti = jwtService.extractJti(req.refreshSeal);
-        UUID userId = jwtService.extractPilgrimId(req.refreshSeal);
+        if (req == null || req.refreshSeal == null || req.refreshSeal.isBlank()) {
+            throw AuthException.badRequest("MISSING_TOKEN", "Refresh token must be provided");
+        }
+        String jti;
+        UUID userId;
+        try {
+            jti = jwtService.extractJti(req.refreshSeal);
+            userId = jwtService.extractPilgrimId(req.refreshSeal);
+        } catch (Exception e) {
+            throw AuthException.unauthorized("INVALID_SEAL", "Refresh seal is corrupted or invalid");
+        }
 
         return RedisService.isSanctioned(jti)
                 .flatMap(sanctioned -> {
@@ -209,8 +226,8 @@ public class AuthService {
                     }
 
                     Set<String> roles = user.isOracle
-                        ? Set.of("User", "Oracle")
-                        : Set.of("User");
+                        ? Set.of("User", "user", "Oracle", "oracle", "admin", "ADMIN")
+                        : Set.of("User", "user");
 
                     String accessSeal = jwtService.issueAccessSeal(
                         user.id, user.phone, user.isOracle, roles
@@ -285,6 +302,7 @@ public class AuthService {
 
     // ─── 6. GAZE UPON SELF (GET PROFILE) ─────────────────────────────────────
 
+    @WithSession
     public Uni<UserResponse> getSelf(UUID userId) {
         return pilgrimRepo.findByIdSafe(userId)
                 .map(pilgrimOpt -> {
@@ -369,6 +387,7 @@ public class AuthService {
 
     // ─── PIN VERIFICATION (used by other sanctums via internal endpoint) ──────
 
+    @WithSession
     public Uni<Boolean> verifyPin(UUID userId, String pin) {
         return pilgrimRepo.findByIdSafe(userId)
                 .map(pilgrimOpt -> {

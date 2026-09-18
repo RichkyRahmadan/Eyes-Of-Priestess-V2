@@ -25,8 +25,8 @@ public class DisputeEventConsumer {
     @Inject DisputeService DisputeService;
 
     @Incoming("Room-broken")
-    public CompletionStage<Void> onCovenantBroken(Message<RoomBrokenEvent> message) {
-        RoomBrokenEvent event = message.getPayload();
+    public Uni<Void> onCovenantBroken(io.vertx.core.json.JsonObject json) {
+        RoomBrokenEvent event = json.mapTo(RoomBrokenEvent.class);
         LOG.infof("[JUDGMENT-CONSUMER] Received Room-broken event: Room=%s reason=%s",
                 event.roomId, event.reason);
 
@@ -40,7 +40,6 @@ public class DisputeEventConsumer {
                 .invoke(c -> LOG.infof("[JUDGMENT-CONSUMER] Case opened: caseId=%s Room=%s", c.id, event.roomId))
                 .onFailure().invoke(err -> LOG.errorf(err, "[JUDGMENT-CONSUMER] Failed to open case for Room=%s", event.roomId))
                 .onFailure().recoverWithNull()
-                .subscribeAsCompletionStage()
-                .thenCompose(ignored -> message.ack());
+                .replaceWithVoid();
     }
 }

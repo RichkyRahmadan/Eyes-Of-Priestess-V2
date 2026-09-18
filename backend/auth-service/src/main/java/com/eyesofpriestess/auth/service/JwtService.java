@@ -53,11 +53,12 @@ public class JwtService {
     public String issueRefreshSeal(UUID userId, String deviceId) {
         Instant now = Instant.now();
         String jti = UUID.randomUUID().toString();
+        String safeDeviceId = (deviceId != null && !deviceId.isBlank()) ? deviceId : "unknown";
         return Jwt.issuer(issuer)
                 .subject(userId.toString())
                 .claim("typ", "refresh")
                 .claim("jti", jti)
-                .claim("deviceId", deviceId)
+                .claim("deviceId", safeDeviceId)
                 .issuedAt(now)
                 .expiresAt(now.plusSeconds(refreshExpiry))
                 .jws()
@@ -77,14 +78,9 @@ public class JwtService {
                 java.util.Base64.getUrlDecoder().decode(parts[1]),
                 StandardCharsets.UTF_8
             );
-            // Parse jti from payload JSON (simple extraction)
-            if (payload.contains("\"jti\"")) {
-                int start = payload.indexOf("\"jti\"") + 7;
-                int end = payload.indexOf("\"", start + 1);
-                return payload.substring(start + 1, end);
-            }
-            // Fallback: use sub+iat as key
-            return UUID.randomUUID().toString();
+            io.vertx.core.json.JsonObject json = new io.vertx.core.json.JsonObject(payload);
+            String jti = json.getString("jti");
+            return jti != null ? jti : UUID.randomUUID().toString();
         } catch (Exception e) {
             return UUID.randomUUID().toString();
         }
@@ -100,13 +96,14 @@ public class JwtService {
                 java.util.Base64.getUrlDecoder().decode(parts[1]),
                 StandardCharsets.UTF_8
             );
-            int start = payload.indexOf("\"sub\"") + 7;
-            int end = payload.indexOf("\"", start + 1);
-            return UUID.fromString(payload.substring(start + 1, end));
+            io.vertx.core.json.JsonObject json = new io.vertx.core.json.JsonObject(payload);
+            String sub = json.getString("sub");
+            return UUID.fromString(sub);
         } catch (Exception e) {
             throw new IllegalArgumentException("Invalid seal token");
         }
     }
+
 
     public long getAccessExpiry() { return accessExpiry; }
     public long getRefreshExpiry() { return refreshExpiry; }

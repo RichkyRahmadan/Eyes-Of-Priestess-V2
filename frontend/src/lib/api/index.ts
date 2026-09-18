@@ -2,15 +2,38 @@
 import { apiFetch } from './client.js';
 
 export const authApi = {
-  login: (data: { email: string; password: string }) =>
-    apiFetch('/auth/login', { method: 'POST', body: JSON.stringify(data) }),
+  login: (data: { email?: string; phone?: string; identifier?: string; password: string }) => {
+    const id = (data.phone || data.identifier || data.email || '').trim();
+    const isEmail = id.includes('@');
+    return apiFetch('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({
+        password: data.password,
+        identifier: id,
+        email: isEmail ? id : (data.email || undefined),
+        phone: !isEmail ? id : (data.phone || undefined)
+      })
+    });
+  },
   register: (data: {
-    email: string;
+    email?: string;
     password: string;
     fullName: string;
-    phoneNumber: string;
-    username: string;
-  }) => apiFetch('/auth/register', { method: 'POST', body: JSON.stringify(data) }),
+    phone?: string;
+    phoneNumber?: string;
+    pin: string;
+    username?: string;
+  }) => {
+    const p = (data.phone || data.phoneNumber || '').trim();
+    return apiFetch('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...data,
+        phone: p,
+        phoneNumber: p
+      })
+    });
+  },
   me: () => apiFetch('/auth/me'),
   logout: () => apiFetch('/auth/logout', { method: 'POST' }),
   setPin: (pin: string) =>
@@ -24,6 +47,8 @@ export const walletApi = {
   getTransactions: (params?: string) =>
     apiFetch(`/wallet/transactions${params ? '?' + params : ''}`),
   topup: (data: { amount: number; method: string; bankCode?: string }) =>
+    apiFetch('/wallet/topup', { method: 'POST', body: JSON.stringify(data) }),
+  topUp: (data: { amount: number; method: string; bankCode?: string }) =>
     apiFetch('/wallet/topup', { method: 'POST', body: JSON.stringify(data) }),
   transfer: (data: {
     recipientIdentifier: string;
@@ -56,8 +81,12 @@ export const walletApi = {
     bankCode: string;
     accountNumber: string;
     accountHolderName: string;
+    bankName?: string;
+    isPrimary?: boolean;
   }) =>
-    apiFetch('/wallet/bank-accounts', { method: 'POST', body: JSON.stringify(data) })
+    apiFetch('/wallet/bank-accounts', { method: 'POST', body: JSON.stringify(data) }),
+  deleteBankAccount: (id: string) =>
+    apiFetch(`/wallet/bank-accounts/${id}`, { method: 'DELETE' })
 };
 
 export const roomApi = {
@@ -69,13 +98,16 @@ export const roomApi = {
     description: string;
     itemCategory: string;
     itemPrice: number;
-    buyerIdentifier: string;
+    buyerIdentifier?: string;
+    counterpartyUsername?: string;
+    myRole?: string;
+    pin?: string;
   }) => apiFetch('/room/', { method: 'POST', body: JSON.stringify(data) }),
   fundRoom: (id: string, pin: string) =>
     apiFetch(`/room/${id}/fund`, { method: 'POST', body: JSON.stringify({ pin }) }),
   deliverRoom: (
     id: string,
-    data: { notes?: string; proofFiles: string[] }
+    data: { notes?: string; proofUrls?: string[]; proofFiles?: string[] }
   ) => apiFetch(`/room/${id}/deliver`, { method: 'POST', body: JSON.stringify(data) }),
   confirmRoom: (
     id: string,

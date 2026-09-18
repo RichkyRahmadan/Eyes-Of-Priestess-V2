@@ -9,6 +9,8 @@
     required?: boolean;
     id?: string;
     class?: string;
+    inputmode?: 'none' | 'text' | 'decimal' | 'numeric' | 'tel' | 'search' | 'email' | 'url';
+    maxlength?: number;
     oninput?: (e: Event) => void;
     onchange?: (e: Event) => void;
   }
@@ -23,6 +25,8 @@
     required = false,
     id = crypto.randomUUID(),
     class: className = '',
+    inputmode = undefined,
+    maxlength = undefined,
     oninput,
     onchange
   }: Props = $props();
@@ -47,6 +51,8 @@
     {required}
     {placeholder}
     bind:value
+    inputmode={inputmode}
+    maxlength={maxlength}
     {oninput}
     {onchange}
     class="w-full h-10 px-3.5 py-2.5 bg-[var(--color-canvas)] border border-[var(--color-hairline)] rounded-[var(--radius-md)] font-sans text-[var(--text-body-md)] text-[var(--color-ink)] placeholder:text-[var(--color-muted-soft)] focus:outline-none focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/15 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed {error ? 'border-[var(--color-error)] focus:border-[var(--color-error)] focus:ring-[var(--color-error)]/15' : ''}"

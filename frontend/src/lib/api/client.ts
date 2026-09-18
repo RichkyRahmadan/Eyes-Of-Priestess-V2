@@ -4,7 +4,7 @@ import { goto } from '$app/navigation';
 import { authStore } from '$lib/stores/auth';
 import type { ApiError } from '$lib/types';
 
-const API_BASE = 'http://localhost:8080/api/v1';
+const API_BASE = 'http://localhost:8000/api/v1';
 
 async function refreshAccessToken(): Promise<string | null> {
   let refreshToken: string | undefined;
@@ -74,10 +74,27 @@ export async function apiFetch<T>(
   }
 
   if (!response.ok) {
-    const error: ApiError = await response.json();
+    let errBody: any;
+    try {
+      errBody = await response.json();
+    } catch {
+      errBody = { message: response.statusText || 'Terjadi kesalahan sistem' };
+    }
+    const message = errBody?.error?.message || errBody?.message || 'Terjadi kesalahan sistem';
+    const rawField = errBody?.error?.field || errBody?.field;
+    const field = rawField ? String(rawField).replace(/.*\.([a-zA-Z0-9_]+)$/, '$1') : undefined;
+    const error: ApiError = {
+      ...errBody,
+      message,
+      ...(field ? { details: [{ field, message }] } : (errBody?.details ? { details: errBody.details } : {}))
+    };
     throw error;
   }
 
   if (response.status === 204) return undefined as T;
-  return response.json();
+  const result = await response.json();
+  if (result && typeof result === 'object' && 'data' in result && result.success === true) {
+    return result.data as T;
+  }
+  return result as T;
 }

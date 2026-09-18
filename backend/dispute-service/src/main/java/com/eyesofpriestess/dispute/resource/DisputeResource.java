@@ -39,6 +39,18 @@ public class DisputeResource {
         return UUID.fromString(jwt.getSubject());
     }
 
+    // ─── 0. LIST ALL DISPUTE CASES ───────────────────────────────────────────
+
+    @GET
+    @Authenticated
+    @Operation(summary = "List dispute cases (with pagination)")
+    public Uni<Response> listCases(
+            @QueryParam("page") @DefaultValue("0") int page,
+            @QueryParam("size") @DefaultValue("20") int size) {
+        return DisputeService.listAllCases(page, size)
+                .map(list -> Response.ok(ApiResponse.ok(list)).build());
+    }
+
     // ─── 1. GET MY CASES ──────────────────────────────────────────────────────
 
     @GET
@@ -76,7 +88,7 @@ public class DisputeResource {
 
     @GET
     @Path("/oracle/open")
-    @RolesAllowed("oracle")
+    @RolesAllowed({"oracle", "Oracle", "admin", "ADMIN"})
     @Operation(summary = "Oracle: List all OPEN dispute cases awaiting assignment")
     public Uni<Response> listOpenCases(
             @QueryParam("page") @DefaultValue("0") int page,
@@ -89,7 +101,7 @@ public class DisputeResource {
 
     @GET
     @Path("/oracle/deliberating")
-    @RolesAllowed("oracle")
+    @RolesAllowed({"oracle", "Oracle", "admin", "ADMIN"})
     @Operation(summary = "Oracle: List all cases currently under deliberation")
     public Uni<Response> listDeliberatingCases(
             @QueryParam("page") @DefaultValue("0") int page,
@@ -102,7 +114,7 @@ public class DisputeResource {
 
     @POST
     @Path("/oracle/{id}/assign")
-    @RolesAllowed("oracle")
+    @RolesAllowed({"oracle", "Oracle", "admin", "ADMIN"})
     @Operation(summary = "Oracle: Assign and take a case (moves to DELIBERATING)")
     public Uni<Response> assignCase(@PathParam("id") UUID id) {
         return DisputeService.assignCase(id, currentPilgrimId())
@@ -113,7 +125,7 @@ public class DisputeResource {
 
     @POST
     @Path("/oracle/{id}/render")
-    @RolesAllowed("oracle")
+    @RolesAllowed({"oracle", "Oracle", "admin", "ADMIN"})
     @Operation(summary = "Oracle: Render a judgment verdict and trigger financial settlement")
     public Uni<Response> renderJudgment(
             @PathParam("id") UUID id,
@@ -126,3 +138,4 @@ public class DisputeResource {
                 .map(c -> Response.ok(ApiResponse.ok(c)).build());
     }
 }
+

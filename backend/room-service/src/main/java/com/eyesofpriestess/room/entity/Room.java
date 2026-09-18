@@ -23,8 +23,12 @@ public class Room extends PanacheEntityBase {
     @GeneratedValue(strategy = GenerationType.UUID)
     public UUID id;
 
+    @Column(name = "room_code", length = 30)
+    public String roomCode;
+
     @Column(name = "title", nullable = false)
     public String title;
+
 
     @Column(name = "description", columnDefinition = "TEXT")
     public String description;

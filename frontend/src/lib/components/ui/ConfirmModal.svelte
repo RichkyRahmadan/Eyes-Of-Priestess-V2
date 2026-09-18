@@ -43,6 +43,7 @@
     <div
       class="bg-[var(--color-surface-card)] border border-[var(--color-hairline)] rounded-[var(--radius-xl)] max-w-md w-full p-6 shadow-xl flex flex-col gap-4 transform transition-all duration-200 scale-100"
       onclick={(e) => e.stopPropagation()}
+      onkeydown={(e) => { if (e.key === 'Escape' && !loading) onCancel(); }}
       role="dialog"
       aria-modal="true"
       tabindex="-1"

@@ -243,11 +243,28 @@ public class AuthResource {
                 .map(data -> Response.ok(ApiResponse.ok(data)).build());
     }
 
+    // ─── 1.8 VERIFY PIN (FOR AUTHENTICATED USER) ──────────────────────────────
+    @POST
+    @Path("/verify-pin")
+    @Authenticated
+    @Operation(summary = "Validate security PIN for current user")
+    public Uni<Response> verifyPinUser(Map<String, String> body) {
+        String pin = body != null ? body.getOrDefault("pin", "") : "";
+        return AuthService.verifyPin(currentPilgrimId(), pin)
+                .map(valid -> {
+                    if (!valid) {
+                        return Response.status(Response.Status.BAD_REQUEST)
+                                .entity(ApiResponse.fail("INVALID_PIN", "Incorrect security PIN")).build();
+                    }
+                    return Response.ok(ApiResponse.ok(Map.of("valid", true))).build();
+                });
+    }
+
     // ─── INTERNAL: PIN VERIFY (for other Sanctums) ────────────────────────────
 
     @POST
     @Path("/internal/verify-pin")
-    @RolesAllowed("Oracle") // Protected internal endpoint
+    @RolesAllowed({"Oracle", "oracle", "admin", "ADMIN"}) // Protected internal endpoint
     @Operation(summary = "Internal: Verify a User's PIN (used by other Sanctums)")
     public Uni<Response> verifyPin(
             @QueryParam("userId") UUID userId,
@@ -256,3 +273,4 @@ public class AuthResource {
                 .map(valid -> Response.ok(ApiResponse.ok(Map.of("valid", valid))).build());
     }
 }
+

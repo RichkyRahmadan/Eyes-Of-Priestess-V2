@@ -125,9 +125,9 @@
       <!-- Select Bank Account -->
       <div class="bg-[var(--color-surface-card)] p-6 rounded-[var(--radius-xl)] space-y-3">
         <div class="flex justify-between items-center mb-2">
-          <label class="font-sans text-[13px] font-medium text-[var(--color-ink)]">
+          <p class="font-sans text-[13px] font-medium text-[var(--color-ink)]">
             Rekening Tujuan
-          </label>
+          </p>
           <a href="/withdraw/add-account" class="font-sans text-[12px] text-[var(--color-primary)] hover:underline">
             + Tambah Rekening
           </a>

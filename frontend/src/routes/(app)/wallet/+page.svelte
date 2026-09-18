@@ -5,6 +5,8 @@
   import Badge from '$lib/components/ui/Badge.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import Skeleton from '$lib/components/ui/Skeleton.svelte';
+  import ConfirmModal from '$lib/components/ui/ConfirmModal.svelte';
+  import { toasts } from '$lib/components/ui/Toaster.svelte';
   import { formatDate, formatIDR } from '$lib/utils/format';
   import type { Transaction, TransactionType, TransactionStatus, BankAccount } from '$lib/types';
 
@@ -14,6 +16,9 @@
   let filterType = $state<TransactionType | ''>('');
   let filterStatus = $state<TransactionStatus | ''>('');
   let loadingMore = $state(false);
+  let selectedAccountToDelete = $state<BankAccount | null>(null);
+  let showDeleteModal = $state(false);
+  let deletingAccount = $state(false);
 
   onMount(() => loadData());
 
@@ -44,6 +49,27 @@
     loadingMore = true;
     await loadData(currentPage + 1);
     loadingMore = false;
+  }
+
+  function confirmDeleteAccount(acc: BankAccount) {
+    selectedAccountToDelete = acc;
+    showDeleteModal = true;
+  }
+
+  async function handleDeleteAccount() {
+    if (!selectedAccountToDelete) return;
+    deletingAccount = true;
+    try {
+      await walletApi.deleteBankAccount(selectedAccountToDelete.id);
+      bankAccounts = bankAccounts.filter((a) => a.id !== selectedAccountToDelete!.id);
+      toasts.success('Rekening bank berhasil dihapus.');
+      showDeleteModal = false;
+    } catch {
+      toasts.error('Gagal menghapus rekening bank.');
+    } finally {
+      deletingAccount = false;
+      selectedAccountToDelete = null;
+    }
   }
 
   const typeLabels: Record<string, string> = {
@@ -230,12 +256,37 @@
                 {acc.accountHolderName}
               </p>
             </div>
-            {#if acc.isPrimary}
-              <Badge variant="coral">Utama</Badge>
-            {/if}
+            <div class="flex items-center gap-2">
+              {#if acc.isPrimary}
+                <Badge variant="coral">Utama</Badge>
+              {/if}
+              <button
+                type="button"
+                onclick={() => confirmDeleteAccount(acc)}
+                class="p-2 text-[var(--color-muted)] hover:text-[var(--color-error)] hover:bg-[var(--color-error)]/10 rounded-[var(--radius-md)] transition-colors"
+                title="Hapus Rekening"
+              >
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </button>
+            </div>
           </div>
         {/each}
       </div>
     {/if}
   </div>
+
+  <!-- Delete Confirmation Modal (Rule 5 S1) -->
+  <ConfirmModal
+    open={showDeleteModal}
+    title="Hapus Rekening Bank"
+    description={`Apakah Anda yakin ingin menghapus rekening ${selectedAccountToDelete?.bankName ?? ''} - ${selectedAccountToDelete?.accountNumber ?? ''}? Tindakan ini tidak dapat dibatalkan.`}
+    confirmLabel="Hapus Rekening"
+    cancelLabel="Batal"
+    danger={true}
+    loading={deletingAccount}
+    onConfirm={handleDeleteAccount}
+    onCancel={() => { showDeleteModal = false; selectedAccountToDelete = null; }}
+  />
 </div>

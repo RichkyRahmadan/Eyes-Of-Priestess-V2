@@ -20,14 +20,17 @@ export interface AuthTokens {
 }
 
 export interface LoginCredentials {
-  email: string;
+  email?: string;
+  phone?: string;
   password: string;
 }
 
 export interface RegisterData {
-  email: string;
+  email?: string;
   password: string;
   fullName: string;
-  phoneNumber: string;
-  username: string;
+  phone?: string;
+  phoneNumber?: string;
+  pin: string;
+  username?: string;
 }

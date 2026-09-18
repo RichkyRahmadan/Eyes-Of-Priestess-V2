@@ -32,4 +32,34 @@ public class AuthResponse {
         r.User = User;
         return r;
     }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("accessToken")
+    public String getAccessToken() {
+        return accessSeal;
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("refreshToken")
+    public String getRefreshToken() {
+        return refreshSeal;
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("tokenType")
+    public String getTokenType() {
+        return "Bearer";
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("user")
+    public UserResponse getUser() {
+        return User;
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("tokens")
+    public java.util.Map<String, Object> getTokens() {
+        java.util.Map<String, Object> map = new java.util.HashMap<>();
+        map.put("accessToken", accessSeal);
+        map.put("refreshToken", refreshSeal != null ? refreshSeal : "");
+        map.put("tokenType", "Bearer");
+        map.put("expiresIn", expiresIn);
+        return map;
+    }
 }

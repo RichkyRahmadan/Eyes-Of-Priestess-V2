@@ -8,6 +8,7 @@ import com.eyesofpriestess.dispute.entity.DisputeCase;
 import com.eyesofpriestess.dispute.event.DisputeResolvedEvent;
 import com.eyesofpriestess.dispute.exception.DisputeException;
 import com.eyesofpriestess.dispute.repository.DisputeCaseRepository;
+import io.quarkus.hibernate.reactive.panache.common.WithSession;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -166,22 +167,32 @@ public class DisputeService {
 
     // ─── 5. QUERY CASES ───────────────────────────────────────────────────────
 
+    @WithSession
+    public Uni<List<DisputeCaseResponse>> listAllCases(int page, int size) {
+        return caseRepo.findAllPaged(page, size)
+                .map(list -> list.stream().map(DisputeCaseResponse::from).toList());
+    }
+
+    @WithSession
     public Uni<List<DisputeCaseResponse>> listOpenCases(int page, int size) {
         return caseRepo.findByStatus(DisputeCase.CaseStatus.OPEN, page, size)
                 .map(list -> list.stream().map(DisputeCaseResponse::from).toList());
     }
 
+    @WithSession
     public Uni<List<DisputeCaseResponse>> listDeliberatingCases(int page, int size) {
         return caseRepo.findByStatus(DisputeCase.CaseStatus.DELIBERATING, page, size)
                 .map(list -> list.stream().map(DisputeCaseResponse::from).toList());
     }
 
+    @WithSession
     public Uni<DisputeCaseResponse> getCase(UUID caseId) {
         return caseRepo.findByIdSafe(caseId)
                 .map(opt -> opt.map(DisputeCaseResponse::from)
                         .orElseThrow(() -> DisputeException.notFound("CASE_NOT_FOUND", "Judgment case not found")));
     }
 
+    @WithSession
     public Uni<List<DisputeCaseResponse>> getMyCases(UUID userId) {
         return caseRepo.findByPilgrimId(userId)
                 .map(list -> list.stream().map(DisputeCaseResponse::from).toList());

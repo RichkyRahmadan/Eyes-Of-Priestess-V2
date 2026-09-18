@@ -32,6 +32,54 @@ public class ChatResource {
     @Inject RoomRegistry roomRegistry;
     @Inject JsonWebToken jwt;
 
+    private UUID currentUserId() {
+        return jwt.getSubject() != null ? UUID.fromString(jwt.getSubject()) : null;
+    }
+
+    /**
+     * GET /api/v1/chat/rooms
+     * List active chat rooms.
+     */
+    @GET
+    @Path("/rooms")
+    @Authenticated
+    @Operation(summary = "List all active chat channels")
+    public Uni<Response> getRooms() {
+        return ChatService.getActiveRooms(currentUserId())
+                .map(rooms -> Response.ok(Map.of(
+                        "success", true,
+                        "data", rooms,
+                        "count", rooms.size()
+                )).build());
+    }
+
+    /**
+     * GET /api/v1/chat/rooms/{roomId}/messages
+     * Alias for getHistory.
+     */
+    @GET
+    @Path("/rooms/{roomId}/messages")
+    @Authenticated
+    @Operation(summary = "Get message history for a Room room (alias)")
+    public Uni<Response> getRoomsHistory(
+            @PathParam("roomId") UUID roomId,
+            @QueryParam("page") @DefaultValue("0") int page,
+            @QueryParam("size") @DefaultValue("50") int size) {
+        return getHistory(roomId, page, size);
+    }
+
+    /**
+     * POST /api/v1/chat/rooms/{roomId}/read
+     * Mark messages as read.
+     */
+    @POST
+    @Path("/rooms/{roomId}/read")
+    @Authenticated
+    @Operation(summary = "Mark room messages as read")
+    public Response markRead(@PathParam("roomId") String roomId) {
+        return Response.ok(Map.of("success", true, "message", "Marked as read")).build();
+    }
+
     /**
      * GET /api/v1/communion/{roomId}/messages
      * Retrieve persisted message history for a Room room (paginated, newest first).
@@ -70,3 +118,4 @@ public class ChatResource {
         )).build();
     }
 }
+

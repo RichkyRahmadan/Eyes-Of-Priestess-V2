@@ -1,16 +1,21 @@
 <script lang="ts">
   import { page } from '$app/state';
-  import { authStore, currentUser } from '$lib/stores/auth';
+  import { authStore, currentUser, isAuthenticated } from '$lib/stores/auth';
   import { wsManager } from '$lib/websocket/manager';
   import { wsUnreadCounts } from '$lib/stores/websocket';
   import Avatar from '$lib/components/ui/Avatar.svelte';
   import { onMount } from 'svelte';
+  import { goto } from '$app/navigation';
 
   let { children } = $props();
 
   let mobileMenuOpen = $state(false);
 
   onMount(() => {
+    if (!$isAuthenticated) {
+      goto('/login');
+      return;
+    }
     wsManager.connect();
     return () => wsManager.disconnect();
   });

@@ -111,9 +111,9 @@
   <form onsubmit={handlePreSubmit} class="flex flex-col gap-6">
     <!-- Role selection -->
     <div class="bg-[var(--color-surface-card)] p-5 rounded-[var(--radius-xl)]">
-      <label class="font-sans text-[13px] font-medium text-[var(--color-ink)] mb-3 block">
+      <p class="font-sans text-[13px] font-medium text-[var(--color-ink)] mb-3" id="role-group-label">
         Peran Anda dalam Transaksi Ini
-      </label>
+      </p>
       <div class="grid grid-cols-2 gap-3">
         <button
           type="button"

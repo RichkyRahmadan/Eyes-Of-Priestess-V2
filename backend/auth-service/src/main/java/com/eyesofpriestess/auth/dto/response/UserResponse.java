@@ -58,4 +58,34 @@ public class UserResponse {
 
         return r;
     }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("username")
+    public String getUsername() {
+        return phone != null ? phone : (email != null ? email.split("@")[0] : "user");
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("phoneNumber")
+    public String getPhoneNumber() {
+        return phone;
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("role")
+    public String getRole() {
+        return isOracle ? "ADMIN" : "USER";
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("isVerified")
+    public boolean isVerified() {
+        return "attuned".equalsIgnoreCase(attunementStatus);
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("isPinSet")
+    public boolean isPinSet() {
+        return true;
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("createdAt")
+    public Instant getCreatedAt() {
+        return attunedAt;
+    }
 }

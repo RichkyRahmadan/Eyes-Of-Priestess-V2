@@ -10,20 +10,38 @@
   import { formatDate, formatIDR } from '$lib/utils/format';
   import type { Transaction, Room } from '$lib/types';
 
+  let allTransactions = $state<Transaction[]>([]);
+  let allRooms = $state<Room[]>([]);
+
   onMount(async () => {
     walletLoading.set(true);
     roomsLoading.set(true);
     try {
       const [wallet, txRes, roomRes] = await Promise.all([
         walletApi.getBalance() as Promise<import('$lib/types').Wallet>,
-        walletApi.getTransactions('size=5') as Promise<import('$lib/types').PaginatedResponse<Transaction>>,
-        roomApi.getRooms('status=FUNDED,WAITING_PAYMENT,DELIVERED&size=4') as Promise<import('$lib/types').PaginatedResponse<Room>>
+        walletApi.getTransactions('size=50') as Promise<any>,
+        roomApi.getRooms('size=50') as Promise<any>
       ]);
       walletStore.set(wallet);
-      transactionsStore.set(txRes.content);
-      roomsStore.set(roomRes.content);
-    } catch {
-      // handled by individual components
+
+      const txList: Transaction[] = Array.isArray(txRes)
+        ? txRes
+        : (txRes?.content ?? []);
+      const roomList: Room[] = Array.isArray(roomRes)
+        ? roomRes
+        : (roomRes?.content ?? []);
+
+      allTransactions = txList;
+      allRooms = roomList;
+
+      transactionsStore.set(txList.slice(0, 5));
+
+      const activeRooms = roomList
+        .filter((r) => ['FUNDED', 'WAITING_PAYMENT', 'DELIVERED'].includes(r.status))
+        .slice(0, 4);
+      roomsStore.set(activeRooms);
+    } catch (e) {
+      console.error('Failed to load dashboard data:', e);
     } finally {
       walletLoading.set(false);
       roomsLoading.set(false);
@@ -40,22 +58,118 @@
     FEE: '−'
   };
 
-  const weeklyVolume = [
-    { day: 'Sen', amount: 2500000, heightPct: 45 },
-    { day: 'Sel', amount: 4200000, heightPct: 75 },
-    { day: 'Rab', amount: 3100000, heightPct: 55 },
-    { day: 'Kam', amount: 5800000, heightPct: 95 },
-    { day: 'Jum', amount: 4500000, heightPct: 80 },
-    { day: 'Sab', amount: 6200000, heightPct: 100 },
-    { day: 'Min', amount: 3800000, heightPct: 65 }
-  ];
+  function getTxDirection(tx: Transaction): 'IN' | 'OUT' | 'NEUTRAL' {
+    if (tx.direction) return tx.direction;
+    if (['TOPUP', 'ESCROW_RELEASE', 'ESCROW_REFUND'].includes(tx.type)) return 'IN';
+    if (['WITHDRAW', 'P2P_TRANSFER', 'ESCROW_HOLD', 'FEE'].includes(tx.type)) return 'OUT';
+    return 'NEUTRAL';
+  }
 
-  const statusDistribution = [
-    { label: 'Selesai (Completed)', count: 18, color: '#16a34a', pct: 64 },
-    { label: 'Terdanai (Funded)', count: 5, color: 'var(--color-primary)', pct: 18 },
-    { label: 'Menunggu Bayar', count: 3, color: '#eab308', pct: 11 },
-    { label: 'Sengketa (Dispute)', count: 2, color: '#dc2626', pct: 7 }
-  ];
+  // ─── Real-Time Dynamic Metrics (Rule 4 S1) ──────────────────────────────────
+  const totalTransactionsCount = $derived(allTransactions.length);
+
+  const completedCovenantsCount = $derived(
+    allRooms.filter((r) => r.status === 'COMPLETED').length
+  );
+
+  const safetyRatio = $derived.by(() => {
+    if (allRooms.length === 0) return '100%';
+    const disputed = allRooms.filter((r) => r.status === 'DISPUTED').length;
+    if (disputed === 0) return '100%';
+    const pct = ((allRooms.length - disputed) / allRooms.length) * 100;
+    return `${pct.toFixed(1)}%`;
+  });
+
+  const avgReleaseTime = $derived.by(() => {
+    const completed = allRooms.filter((r) => r.status === 'COMPLETED');
+    if (completed.length === 0) return '-';
+    let totalHours = 0;
+    let count = 0;
+    for (const r of completed) {
+      const start = r.createdAt ? new Date(r.createdAt).getTime() : 0;
+      const end = (r as any).updatedAt ? new Date((r as any).updatedAt).getTime() : 0;
+      if (start > 0 && end > start) {
+        totalHours += (end - start) / 3600000;
+        count++;
+      }
+    }
+    if (count === 0) return '< 1 Jam';
+    const avg = totalHours / count;
+    return avg < 1 ? '< 1 Jam' : `~${avg.toFixed(1)} Jam`;
+  });
+
+  // ─── Dynamic 7-Day Weekly Volume ──────────────────────────────────────────
+  const daysOfWeekLabels = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+
+  const weeklyVolumeData = $derived.by(() => {
+    const now = new Date();
+    const days: { dateStr: string; day: string; amount: number }[] = [];
+
+    // Rolling 7 days up to today
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(now.getDate() - i);
+      const dateStr = d.toISOString().split('T')[0];
+      const day = daysOfWeekLabels[d.getDay()];
+      days.push({ dateStr, day, amount: 0 });
+    }
+
+    for (const tx of allTransactions) {
+      if (!tx.createdAt) continue;
+      const txDateStr = new Date(tx.createdAt).toISOString().split('T')[0];
+      const match = days.find((d) => d.dateStr === txDateStr);
+      if (match) {
+        match.amount += Number(tx.amount || 0);
+      }
+    }
+
+    const totalWeeklyAmount = days.reduce((sum, d) => sum + d.amount, 0);
+    const maxAmount = Math.max(...days.map((d) => d.amount), 0);
+
+    const bars = days.map((d) => ({
+      day: d.day,
+      amount: d.amount,
+      heightPct: maxAmount > 0 ? Math.max(8, Math.round((d.amount / maxAmount) * 100)) : 0
+    }));
+
+    return { bars, totalWeeklyAmount };
+  });
+
+  // ─── Dynamic Escrow Status Distribution ───────────────────────────────────
+  const statusDistribution = $derived.by(() => {
+    const total = allRooms.length;
+    const completed = allRooms.filter((r) => r.status === 'COMPLETED').length;
+    const funded = allRooms.filter((r) => ['FUNDED', 'DELIVERED'].includes(r.status)).length;
+    const waiting = allRooms.filter((r) => r.status === 'WAITING_PAYMENT').length;
+    const disputed = allRooms.filter((r) => r.status === 'DISPUTED').length;
+
+    return [
+      {
+        label: 'Selesai (Completed)',
+        count: completed,
+        color: '#16a34a',
+        pct: total > 0 ? Math.round((completed / total) * 100) : 0
+      },
+      {
+        label: 'Terdanai / Terkirim',
+        count: funded,
+        color: 'var(--color-primary)',
+        pct: total > 0 ? Math.round((funded / total) * 100) : 0
+      },
+      {
+        label: 'Menunggu Bayar',
+        count: waiting,
+        color: '#eab308',
+        pct: total > 0 ? Math.round((waiting / total) * 100) : 0
+      },
+      {
+        label: 'Sengketa (Dispute)',
+        count: disputed,
+        color: '#dc2626',
+        pct: total > 0 ? Math.round((disputed / total) * 100) : 0
+      }
+    ];
+  });
 </script>
 
 <svelte:head>
@@ -180,22 +294,38 @@
   <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
     <div class="bg-[var(--color-surface-card)] rounded-[var(--radius-lg)] p-4 border border-[var(--color-hairline-soft)]">
       <p class="font-sans text-xs text-[var(--color-muted)] font-medium">Total Transaksi</p>
-      <p class="font-display text-[var(--text-title-lg)] text-[var(--color-ink)] mt-1">32</p>
+      {#if $walletLoading}
+        <div class="skeleton h-7 w-12 rounded mt-1"></div>
+      {:else}
+        <p class="font-display text-[var(--text-title-lg)] text-[var(--color-ink)] mt-1">{totalTransactionsCount}</p>
+      {/if}
       <p class="text-[11px] text-[var(--color-muted-soft)] mt-0.5">Semua tipe mutasi</p>
     </div>
     <div class="bg-[var(--color-surface-card)] rounded-[var(--radius-lg)] p-4 border border-[var(--color-hairline-soft)]">
       <p class="font-sans text-xs text-[var(--color-muted)] font-medium">Covenant Sukses</p>
-      <p class="font-display text-[var(--text-title-lg)] text-[var(--color-success)] mt-1">18</p>
+      {#if $roomsLoading}
+        <div class="skeleton h-7 w-12 rounded mt-1"></div>
+      {:else}
+        <p class="font-display text-[var(--text-title-lg)] text-[var(--color-success)] mt-1">{completedCovenantsCount}</p>
+      {/if}
       <p class="text-[11px] text-[var(--color-success)] mt-0.5">Dana terlepas aman</p>
     </div>
     <div class="bg-[var(--color-surface-card)] rounded-[var(--radius-lg)] p-4 border border-[var(--color-hairline-soft)]">
       <p class="font-sans text-xs text-[var(--color-muted)] font-medium">Rasio Keamanan</p>
-      <p class="font-display text-[var(--text-title-lg)] text-[var(--color-primary)] mt-1">99.8%</p>
+      {#if $roomsLoading}
+        <div class="skeleton h-7 w-12 rounded mt-1"></div>
+      {:else}
+        <p class="font-display text-[var(--text-title-lg)] text-[var(--color-primary)] mt-1">{safetyRatio}</p>
+      {/if}
       <p class="text-[11px] text-[var(--color-primary)] mt-0.5">Bebas penipuan</p>
     </div>
     <div class="bg-[var(--color-surface-card)] rounded-[var(--radius-lg)] p-4 border border-[var(--color-hairline-soft)]">
       <p class="font-sans text-xs text-[var(--color-muted)] font-medium">Rata-rata Rilis</p>
-      <p class="font-display text-[var(--text-title-lg)] text-[var(--color-ink)] mt-1">~2.4 Jam</p>
+      {#if $roomsLoading}
+        <div class="skeleton h-7 w-12 rounded mt-1"></div>
+      {:else}
+        <p class="font-display text-[var(--text-title-lg)] text-[var(--color-ink)] mt-1">{avgReleaseTime}</p>
+      {/if}
       <p class="text-[11px] text-[var(--color-muted-soft)] mt-0.5">Kecepatan serah-terima</p>
     </div>
   </div>
@@ -214,13 +344,13 @@
           </p>
         </div>
         <span class="text-xs font-mono font-medium px-2 py-0.5 rounded bg-[var(--color-surface-soft)] text-[var(--color-primary)]">
-          Total: Rp 30.1 Jt
+          Total: {formatIDR(weeklyVolumeData.totalWeeklyAmount)}
         </span>
       </div>
 
       <!-- SVG-like Pure CSS Responsive Bar Chart -->
       <div class="h-44 flex items-end justify-between gap-2 pt-6 px-2">
-        {#each weeklyVolume as bar}
+        {#each weeklyVolumeData.bars as bar}
           <div class="flex-1 flex flex-col items-center gap-2 group h-full justify-end">
             <!-- Tooltip Hover -->
             <div class="opacity-0 group-hover:opacity-100 transition-opacity duration-150 text-[10px] font-mono bg-[var(--color-surface-dark)] text-white px-1.5 py-0.5 rounded pointer-events-none whitespace-nowrap shadow">
@@ -228,8 +358,8 @@
             </div>
             <!-- Bar -->
             <div
-              class="w-full max-w-[32px] rounded-t-[var(--radius-sm)] bg-[var(--color-primary)]/80 hover:bg-[var(--color-primary)] transition-all duration-200"
-              style="height: {bar.heightPct}%;"
+              class="w-full max-w-[32px] rounded-t-[var(--radius-sm)] {bar.amount > 0 ? 'bg-[var(--color-primary)]/80 hover:bg-[var(--color-primary)]' : 'bg-[var(--color-surface-soft)]'} transition-all duration-200"
+              style="height: {bar.amount > 0 ? bar.heightPct : 4}%;"
             ></div>
             <!-- Day Label -->
             <span class="text-[11px] font-sans text-[var(--color-muted)] group-hover:text-[var(--color-ink)] transition-colors">
@@ -247,18 +377,24 @@
           Distribusi Status Escrow
         </h3>
         <p class="font-sans text-xs text-[var(--color-muted)] mt-0.5">
-          Komposisi status 28 room transaksi terkini
+          {allRooms.length > 0 ? `Komposisi status ${allRooms.length} room transaksi terkini` : 'Belum ada room transaksi'}
         </p>
       </div>
 
       <!-- Multi-segment Progress Bar -->
       <div class="h-3 w-full rounded-full bg-[var(--color-surface-soft)] overflow-hidden flex mb-4">
-        {#each statusDistribution as item}
-          <div
-            style="width: {item.pct}%; background-color: {item.color};"
-            title="{item.label}: {item.pct}%"
-          ></div>
-        {/each}
+        {#if allRooms.length === 0}
+          <div class="w-full h-full bg-[var(--color-hairline-soft)]" title="Belum ada transaksi"></div>
+        {:else}
+          {#each statusDistribution as item}
+            {#if item.pct > 0}
+              <div
+                style="width: {item.pct}%; background-color: {item.color};"
+                title="{item.label}: {item.pct}%"
+              ></div>
+            {/if}
+          {/each}
+        {/if}
       </div>
 
       <!-- Breakdown Legend -->
@@ -306,15 +442,16 @@
         </div>
       {:else}
         {#each $transactionsStore as tx, i}
+          {@const dir = getTxDirection(tx)}
           <div
             class="flex items-center gap-4 px-5 py-4 {i < $transactionsStore.length - 1 ? 'border-b border-[var(--color-hairline-soft)]' : ''}"
           >
             <!-- Type indicator -->
             <div
-              class="w-9 h-9 rounded-[var(--radius-md)] flex items-center justify-center shrink-0 {tx.direction === 'IN' ? 'bg-[var(--color-success)]/10' : tx.direction === 'OUT' ? 'bg-[var(--color-error)]/10' : 'bg-[var(--color-surface-soft)]'}"
+              class="w-9 h-9 rounded-[var(--radius-md)] flex items-center justify-center shrink-0 {dir === 'IN' ? 'bg-[var(--color-success)]/10' : dir === 'OUT' ? 'bg-[var(--color-error)]/10' : 'bg-[var(--color-surface-soft)]'}"
             >
               <span
-                class="font-mono text-[14px] {tx.direction === 'IN' ? 'text-[var(--color-success)]' : tx.direction === 'OUT' ? 'text-[var(--color-error)]' : 'text-[var(--color-muted)]'}"
+                class="font-mono text-[14px] {dir === 'IN' ? 'text-[var(--color-success)]' : dir === 'OUT' ? 'text-[var(--color-error)]' : 'text-[var(--color-muted)]'}"
               >
                 {txIcons[tx.type] ?? '·'}
               </span>
@@ -340,9 +477,9 @@
             <!-- Amount + status -->
             <div class="text-right shrink-0">
               <p
-                class="font-sans font-medium text-[var(--text-body-sm)] {tx.direction === 'IN' ? 'text-[var(--color-success)]' : tx.direction === 'OUT' ? 'text-[var(--color-error)]' : 'text-[var(--color-muted)]'}"
+                class="font-sans font-medium text-[var(--text-body-sm)] {dir === 'IN' ? 'text-[var(--color-success)]' : dir === 'OUT' ? 'text-[var(--color-error)]' : 'text-[var(--color-muted)]'}"
               >
-                {tx.direction === 'IN' ? '+' : tx.direction === 'OUT' ? '-' : ''}{formatIDR(tx.amount)}
+                {dir === 'IN' ? '+' : dir === 'OUT' ? '-' : ''}{formatIDR(tx.amount)}
               </p>
               <div class="mt-1">
                 <Badge status={tx.status} />
@@ -371,7 +508,7 @@
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {#each $roomsStore as room}
           <a
-            href="/rooms/{room.roomId}"
+            href="/rooms/{room.roomId ?? (room as any).id}"
             class="bg-[var(--color-surface-card)] rounded-[var(--radius-xl)] p-5 flex flex-col gap-3 hover:shadow-[var(--shadow-card)] transition-shadow duration-150"
           >
             <div class="flex items-start justify-between gap-2">
@@ -379,7 +516,7 @@
                 <span
                   class="inline-block font-mono text-[11px] text-[var(--color-primary)] bg-[var(--color-primary)]/8 px-2 py-0.5 rounded-[var(--radius-sm)] mb-1"
                 >
-                  {room.roomCode}
+                  {room.roomCode ?? (room as any).invitationCode ?? 'COV'}
                 </span>
                 <p
                   class="font-sans font-medium text-[var(--text-body-md)] text-[var(--color-ink)] leading-snug"
@@ -391,13 +528,13 @@
             </div>
             <div class="flex items-center justify-between">
               <div class="flex items-center gap-2">
-                <Avatar name={room.buyer.name} src={room.buyer.avatar} size="xs" />
+                <Avatar name={room.buyer?.name ?? 'Pengguna'} src={room.buyer?.avatar} size="xs" />
                 <span class="font-sans text-[var(--text-caption)] text-[var(--color-muted)]">
-                  {room.buyer.name}
+                  {room.buyer?.name ?? (room.seller?.name ? 'Mitra: ' + room.seller.name : 'Belum bergabung')}
                 </span>
               </div>
               <p class="font-display text-[var(--text-title-sm)] text-[var(--color-ink)]">
-                {formatIDR(room.totalAmount)}
+                {formatIDR(room.totalAmount ?? (room as any).amount ?? 0)}
               </p>
             </div>
           </a>
@@ -406,3 +543,4 @@
     </div>
   {/if}
 </div>
+

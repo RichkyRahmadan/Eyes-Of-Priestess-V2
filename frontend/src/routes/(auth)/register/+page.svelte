@@ -12,7 +12,8 @@
     email: '',
     phoneNumber: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    pin: ''
   });
   let loading = $state(false);
   let errors = $state<Record<string, string>>({});
@@ -33,6 +34,10 @@
       e.password = 'Password harus mengandung huruf besar, huruf kecil, dan angka';
     if (form.password !== form.confirmPassword)
       e.confirmPassword = 'Konfirmasi password tidak cocok';
+    if (!form.pin.match(/^[0-9]{6}$/))
+      e.pin = 'PIN harus berupa 6 digit angka numerik';
+    if (form.pin === form.password)
+      e.pin = 'PIN tidak boleh sama dengan password';
     return e;
   }
 
@@ -48,24 +53,54 @@
     }
 
     loading = true;
+    const cleanPhone = form.phoneNumber.trim().replace(/[\s-]/g, '');
+
     try {
-      const res = await authApi.register({
+      await authApi.register({
         email: form.email,
         password: form.password,
         fullName: form.fullName,
-        phoneNumber: form.phoneNumber,
-        username: form.username
-      }) as { user: import('$lib/types').User; tokens: import('$lib/types').AuthTokens };
-      authStore.setAuth(res.user, res.tokens);
-      goto('/set-pin');
+        phone: cleanPhone,
+        phoneNumber: cleanPhone,
+        username: form.username,
+        pin: form.pin
+      });
+
+      // Attempt automatic login after registration
+      try {
+        const loginRes = (await authApi.login({
+          phone: cleanPhone,
+          password: form.password
+        })) as any;
+
+        const tokens = loginRes?.tokens || (loginRes?.accessToken ? {
+          accessToken: loginRes.accessToken,
+          refreshToken: loginRes.refreshToken || '',
+          tokenType: loginRes.tokenType || 'Bearer',
+          expiresIn: loginRes.expiresIn || 900
+        } : null);
+
+        const user = loginRes?.user || loginRes?.User;
+
+        if (tokens && user) {
+          authStore.setAuth(user, tokens);
+          goto('/dashboard');
+          return;
+        }
+      } catch {
+        // Fallback to login page if auto-login does not succeed
+      }
+
+      goto('/login');
     } catch (err) {
       const apiErr = err as ApiError;
       if (apiErr?.details?.length) {
         apiErr.details.forEach((d) => {
-          errors[d.field] = d.message;
+          const fieldKey = d.field === 'phone' ? 'phoneNumber' : d.field;
+          errors[fieldKey] = d.message;
         });
       } else {
-        globalError = apiErr?.message ?? 'Terjadi kesalahan. Coba lagi.';
+        globalError = apiErr?.message ?? 'Terjadi kesalahan saat registrasi. Coba lagi.';
       }
     } finally {
       loading = false;
@@ -148,6 +183,17 @@
     error={errors.confirmPassword}
     required
     id="reg-confirm"
+  />
+  <Input
+    label="PIN Transaksi (6 Digit Angka)"
+    type="password"
+    inputmode="numeric"
+    maxlength={6}
+    bind:value={form.pin}
+    placeholder="Contoh: 123456"
+    error={errors.pin}
+    required
+    id="reg-pin"
   />
 
   <Button variant="primary" type="submit" {loading} class="w-full mt-1">

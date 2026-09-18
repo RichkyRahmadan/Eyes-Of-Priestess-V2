@@ -10,12 +10,22 @@
   import Button from '$lib/components/ui/Button.svelte';
   import PinInput from '$lib/components/ui/PinInput.svelte';
   import Skeleton from '$lib/components/ui/Skeleton.svelte';
+  import FileUpload from '$lib/components/ui/FileUpload.svelte';
+  import ConfirmModal from '$lib/components/ui/ConfirmModal.svelte';
   import { formatIDR, formatDate } from '$lib/utils/format';
   import type { Room } from '$lib/types';
 
   let loading = $state(true);
   let actionLoading = $state(false);
   let showPinModal = $state(false);
+  let showDisputeModal = $state(false);
+  let showCancelModal = $state(false);
+  let cancelingRoom = $state(false);
+  let disputeReason = $state('Barang / akun tidak sesuai deskripsi');
+  let disputeDesc = $state('');
+  let disputeFiles = $state<any[]>([]);
+  let disputeSubmitting = $state(false);
+  let disputeError = $state('');
   let pendingAction = $state<'fund' | 'confirm' | null>(null);
   let pinValues = $state(Array(6).fill(''));
   let pinError = $state('');
@@ -87,6 +97,64 @@
     }
   }
 
+  async function handleOpenDispute() {
+    if (!disputeDesc.trim()) {
+      disputeError = 'Deskripsi alasan sengketa wajib diisi';
+      return;
+    }
+    disputeSubmitting = true;
+    disputeError = '';
+    try {
+      const evidenceUrls = disputeFiles
+        .filter((f) => f.status === 'completed' && f.url)
+        .map((f) => f.url);
+
+      const targetId = room!.roomId || page.params.id!;
+      const updated = await roomApi.disputeRoom(targetId, {
+        reason: disputeReason,
+        description: disputeDesc,
+        evidenceUrls
+      }) as Room;
+
+      activeRoomStore.set(updated);
+      showDisputeModal = false;
+      addNotification({
+        type: 'warning',
+        title: 'Sengketa Dibuka',
+        message: 'Kasus sengketa telah diteruskan ke Arbiter & Admin Oracle'
+      });
+    } catch (err: unknown) {
+      const apiErr = err as { message?: string };
+      disputeError = apiErr?.message ?? 'Gagal membuka sengketa';
+    } finally {
+      disputeSubmitting = false;
+    }
+  }
+
+  async function handleCancelRoom() {
+    cancelingRoom = true;
+    try {
+      const targetId = room!.roomId || page.params.id!;
+      const updated = (await roomApi.cancelRoom(targetId)) as Room;
+      activeRoomStore.set(updated);
+      showCancelModal = false;
+      addNotification({
+        type: 'info',
+        title: 'Room Dibatalkan',
+        message: 'Room escrow telah resmi dibatalkan.'
+      });
+    } catch (err: unknown) {
+      const apiErr = err as { message?: string };
+      addNotification({
+        type: 'error',
+        title: 'Gagal Membatalkan Room',
+        message: apiErr?.message ?? 'Terjadi kesalahan saat membatalkan room'
+      });
+    } finally {
+      cancelingRoom = false;
+    }
+  }
+
   const statusTimelineLabels: Record<string, string> = {
     WAITING_PAYMENT: 'Room dibuat',
     FUNDED: 'Dana dikunci',
@@ -132,7 +200,7 @@
         </div>
       </div>
       {#if canDispute}
-        <Button variant="secondary" size="sm" onclick={() => addNotification({ type: 'warning', title: 'Dispute', message: 'Fitur dispute akan segera tersedia' })}>
+        <Button variant="secondary" size="sm" onclick={() => (showDisputeModal = true)}>
           Laporkan Sengketa
         </Button>
       {/if}
@@ -195,9 +263,14 @@
             <p class="font-sans text-[var(--text-body-sm)] text-[var(--color-on-dark-soft)] mb-4">
               {formatIDR(room.totalAmount)} akan dipindahkan dari saldo Anda ke escrow. Dana hanya dilepas setelah Anda konfirmasi penerimaan.
             </p>
-            <Button variant="primary" onclick={() => triggerAction('fund')}>
-              Kunci Dana {formatIDR(room.totalAmount)}
-            </Button>
+            <div class="flex items-center gap-3 flex-wrap">
+              <Button variant="primary" onclick={() => triggerAction('fund')}>
+                Kunci Dana {formatIDR(room.totalAmount)}
+              </Button>
+              <Button variant="secondary" onclick={() => (showCancelModal = true)}>
+                Batalkan Room
+              </Button>
+            </div>
           </div>
         {:else if canDeliver}
           <div class="bg-[var(--color-surface-card)] rounded-[var(--radius-xl)] p-6">
@@ -327,6 +400,123 @@
       </div>
     </div>
   {/if}
+
+  <!-- Dispute Modal -->
+  {#if showDisputeModal}
+    <div
+      class="fixed inset-0 z-50 flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Laporkan Sengketa"
+    >
+      <div
+        class="absolute inset-0 bg-[var(--color-ink)]/50 backdrop-blur-sm"
+        onclick={() => (showDisputeModal = false)}
+        role="presentation"
+      ></div>
+      <div
+        class="relative bg-[var(--color-canvas)] rounded-[var(--radius-xl)] p-6 sm:p-8 w-full max-w-lg shadow-[var(--shadow-elevated)] max-h-[90vh] overflow-y-auto"
+        style="animation: modal-in 200ms cubic-bezier(0.16,1,0.3,1) both;"
+      >
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h2 class="font-display text-[var(--text-display-sm)] text-[var(--color-ink)]">
+              Buka Mediasi Sengketa
+            </h2>
+            <p class="font-sans text-[var(--text-body-sm)] text-[var(--color-muted)] mt-0.5">
+              Dana escrow akan dibekukan sementara hingga Arbiter mengambil keputusan.
+            </p>
+          </div>
+          <button
+            type="button"
+            onclick={() => (showDisputeModal = false)}
+            class="text-[var(--color-muted)] hover:text-[var(--color-ink)] p-1.5 rounded-lg"
+          >
+            ✕
+          </button>
+        </div>
+
+        {#if disputeError}
+          <div class="mb-4 bg-[var(--color-error)]/10 border border-[var(--color-error)]/20 rounded-[var(--radius-md)] px-4 py-2.5">
+            <p class="font-sans text-[var(--text-body-sm)] text-[var(--color-error)]">{disputeError}</p>
+          </div>
+        {/if}
+
+        <form onsubmit={(e) => { e.preventDefault(); handleOpenDispute(); }} class="flex flex-col gap-4">
+          <div class="flex flex-col gap-1.5">
+            <label for="dispute-reason-select" class="font-sans text-[var(--text-caption)] font-medium text-[var(--color-body)]">
+              Kategori Sengketa <span class="text-[var(--color-primary)]">*</span>
+            </label>
+            <select
+              id="dispute-reason-select"
+              bind:value={disputeReason}
+              class="w-full h-10 px-3 py-2 bg-[var(--color-surface-card)] border border-[var(--color-hairline)] rounded-[var(--radius-md)] font-sans text-[var(--text-body-sm)] text-[var(--color-ink)] focus:outline-none focus:border-[var(--color-primary)]"
+            >
+              <option value="Barang / akun tidak sesuai deskripsi">Barang / akun tidak sesuai deskripsi</option>
+              <option value="Kredensial login akun salah atau terblokir">Kredensial login akun salah atau terblokir</option>
+              <option value="Penjual tidak menyerahkan barang melewati batas waktu">Penjual tidak menyerahkan barang melewati batas waktu</option>
+              <option value="Pembeli tidak mengonfirmasi penyelesaian barang">Pembeli tidak mengonfirmasi penyelesaian barang</option>
+              <option value="Masalah teknis / kecurangan lainnya">Masalah teknis / kecurangan lainnya</option>
+            </select>
+          </div>
+
+          <div class="flex flex-col gap-1.5">
+            <label for="dispute-desc-area" class="font-sans text-[var(--text-caption)] font-medium text-[var(--color-body)]">
+              Penjelasan Rinci Kronologi <span class="text-[var(--color-primary)]">*</span>
+            </label>
+            <textarea
+              id="dispute-desc-area"
+              bind:value={disputeDesc}
+              rows="3"
+              placeholder="Jelaskan secara jelas kronologi kendala yang dialami untuk dinilai oleh Arbiter..."
+              class="w-full p-3 bg-[var(--color-surface-card)] border border-[var(--color-hairline)] rounded-[var(--radius-md)] font-sans text-[var(--text-body-sm)] text-[var(--color-ink)] focus:outline-none focus:border-[var(--color-primary)]"
+              required
+            ></textarea>
+          </div>
+
+          <!-- File upload for evidence -->
+          <FileUpload
+            label="Lampirkan Bukti Pendukung (Tangkapan Layar / PDF)"
+            hint="Format: JPG, PNG, WEBP, atau PDF (Maks. 10MB)"
+            multiple={true}
+            bind:files={disputeFiles}
+          />
+
+          <div class="mt-4 flex gap-3">
+            <Button
+              variant="secondary"
+              type="button"
+              class="flex-1"
+              onclick={() => (showDisputeModal = false)}
+            >
+              Batal
+            </Button>
+            <Button
+              variant="primary"
+              type="submit"
+              class="flex-1"
+              loading={disputeSubmitting}
+            >
+              Kirimkan Sengketa
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  {/if}
+
+  <!-- Cancel Room Confirmation Modal (Rule 5 S1) -->
+  <ConfirmModal
+    open={showCancelModal}
+    title="Batalkan Room Escrow"
+    description="Apakah Anda yakin ingin membatalkan room escrow ini? Tindakan ini akan mengubah status transaksi menjadi CANCELLED."
+    confirmLabel="Ya, Batalkan"
+    cancelLabel="Kembali"
+    danger={true}
+    loading={cancelingRoom}
+    onConfirm={handleCancelRoom}
+    onCancel={() => (showCancelModal = false)}
+  />
 {/if}
 
 <style>

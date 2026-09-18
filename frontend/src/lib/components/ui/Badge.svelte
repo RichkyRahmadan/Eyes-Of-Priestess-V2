@@ -6,6 +6,7 @@
     | 'neutral'
     | 'success'
     | 'warning'
+    | 'amber'
     | 'error'
     | 'teal';
 
@@ -51,6 +52,8 @@
       'bg-[var(--color-success)]/10 text-[var(--color-success)]',
     warning:
       'bg-[var(--color-warning)]/10 text-[var(--color-warning)]',
+    amber:
+      'bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400',
     error:
       'bg-[var(--color-error)]/10 text-[var(--color-error)]',
     teal:

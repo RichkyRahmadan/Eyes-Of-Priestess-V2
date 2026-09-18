@@ -29,4 +29,9 @@ public class DisputeCaseRepository implements PanacheRepositoryBase<DisputeCase,
     public Uni<List<DisputeCase>> findByPilgrimId(UUID userId) {
         return list("initiatorId = ?1 or counterpartyId = ?1 order by openedAt desc", userId);
     }
+
+    public Uni<List<DisputeCase>> findAllPaged(int page, int size) {
+        return findAll().page(page, size).list();
+    }
 }
+

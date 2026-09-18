@@ -36,20 +36,19 @@ INSERT INTO auth.users (
 ON CONFLICT (email) DO NOTHING;
 
 -- ─── 2. SEED AUTH.CREDENTIALS (22 Records) ────────────────────────────────────
--- Default Password: Password123! ($2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy)
--- Default PIN: 123456 ($2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi)
+-- Default Password: Password123! ($2a$12$BlUw3Q07lONu4TpgZY3y2eEkepDKNvjfHF9pNp0wzREX.5tWsEOKe)
+-- Default PIN: 123456 ($2a$12$.00OLxHUmgSninkvpwGh5ef87Rb94tlq4X/onjKX6OmXjC.fWwHRu)
 INSERT INTO auth.credentials (
     user_id, password_hash, pin_hash, pin_set_at, created_at, updated_at
 )
 SELECT 
     id,
-    '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
-    '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
+    '$2a$12$BlUw3Q07lONu4TpgZY3y2eEkepDKNvjfHF9pNp0wzREX.5tWsEOKe',
+    '$2a$12$.00OLxHUmgSninkvpwGh5ef87Rb94tlq4X/onjKX6OmXjC.fWwHRu',
     NOW() - INTERVAL '30 days',
     created_at,
     updated_at
 FROM auth.users
-WHERE id >= 'a0000000-0000-0000-0000-000000000001'
 ON CONFLICT DO NOTHING;
 
 -- ─── 3. SEED WALLET.WALLETS (22 Records) ──────────────────────────────────────
@@ -252,12 +251,30 @@ INSERT INTO chat.messages (
 ('c0000000-0000-0000-0000-000000000003', 'a0000000-0000-0000-0000-000000000003', 'Saya ajukan sengketa resmi ke Arbiter/Admin agar dana terlindungi.', 'TEXT', NOW() - INTERVAL '4 days' + INTERVAL '30 minutes'),
 ('c0000000-0000-0000-0000-000000000003', 'a0000000-0000-0000-0000-000000000002', 'Pesan Arbiter: Sengketa diterima. Mohon kedua belah pihak melampirkan bukti screenshot.', 'SYSTEM', NOW() - INTERVAL '3 days');
 
--- ─── 8. SEED DISPUTE.DISPUTES (Realistic Dispute Cases) ───────────────────────
+-- ─── 8. SEED DISPUTE.DISPUTES (20+ Realistic Dispute Cases) ─────────────────────
 INSERT INTO dispute.disputes (
     id, room_id, initiated_by, initiator_role, title, description, status, decision, decision_reason, refund_amount, resolved_by, created_at, updated_at
 ) VALUES
 ('d0000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-000000000011', 'a0000000-0000-0000-0000-000000000003', 'BUYER', 'Akun PUBG Belum Diberikan Akses Penuh', 'Penjual tidak memberikan kode verifikasi email untuk mengganti kredensial login utama.', 'OPEN', NULL, NULL, NULL, NULL, NOW() - INTERVAL '4 days', NOW()),
-('d0000000-0000-0000-0000-000000000002', 'b0000000-0000-0000-0000-000000000012', 'a0000000-0000-0000-0000-000000000009', 'BUYER', 'Keterlambatan Deliverable Ilustrasi Vtuber', 'Penjual tidak membalas pesan dan melewati deadline lebih dari 7 hari.', 'UNDER_REVIEW', NULL, NULL, NULL, 'a0000000-0000-0000-0000-000000000002', NOW() - INTERVAL '3 days', NOW())
+('d0000000-0000-0000-0000-000000000002', 'b0000000-0000-0000-0000-000000000012', 'a0000000-0000-0000-0000-000000000009', 'BUYER', 'Keterlambatan Deliverable Ilustrasi Vtuber', 'Penjual tidak membalas pesan dan melewati deadline lebih dari 7 hari.', 'UNDER_REVIEW', NULL, NULL, NULL, 'a0000000-0000-0000-0000-000000000002', NOW() - INTERVAL '3 days', NOW()),
+('d0000000-0000-0000-0000-000000000003', 'b0000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000003', 'BUYER', 'Keterlambatan Penyerahan Akun MLBB', 'Penjual baru menyerahkan akun setelah 48 jam, pembeli sempat mengajukan sengketa.', 'RESOLVED', 'RELEASE_TO_SELLER', 'Penjual telah berhasil menyerahkan akun dan pembeli telah mengonfirmasi.', 0, 'a0000000-0000-0000-0000-000000000001', NOW() - INTERVAL '55 days', NOW() - INTERVAL '54 days'),
+('d0000000-0000-0000-0000-000000000004', 'b0000000-0000-0000-0000-000000000002', 'a0000000-0000-0000-0000-000000000005', 'BUYER', 'Skin Vandal Kuronami Level Belum Max', 'Level skin tidak sesuai dengan deskripsi awal di room.', 'RESOLVED', 'REFUND_BUYER', 'Barang tidak sesuai spesifikasi. Dana dikembalikan penuh ke pembeli.', 858500, 'a0000000-0000-0000-0000-000000000002', NOW() - INTERVAL '48 days', NOW() - INTERVAL '47 days'),
+('d0000000-0000-0000-0000-000000000005', 'b0000000-0000-0000-0000-000000000003', 'a0000000-0000-0000-0000-000000000008', 'SELLER', 'Pembeli Tidak Merespons Konfirmasi Figma', 'Pekerjaan desain UI/UX sudah selesai 100% namun pembeli tidak merespons.', 'RESOLVED', 'RELEASE_TO_SELLER', 'Bukti penyerahan valid dan pembeli tidak merespons lebih dari 7 hari.', 0, 'a0000000-0000-0000-0000-000000000001', NOW() - INTERVAL '38 days', NOW() - INTERVAL '37 days'),
+('d0000000-0000-0000-0000-000000000006', 'b0000000-0000-0000-0000-000000000004', 'a0000000-0000-0000-0000-000000000009', 'BUYER', 'Kredensial Akun Steam Tidak Bisa Login', 'Password yang diberikan penjual salah.', 'RESOLVED', 'REFUND_BUYER', 'Kredensial tidak valid.', 1212000, 'a0000000-0000-0000-0000-000000000002', NOW() - INTERVAL '33 days', NOW() - INTERVAL '32 days'),
+('d0000000-0000-0000-0000-000000000007', 'b0000000-0000-0000-0000-000000000005', 'a0000000-0000-0000-0000-000000000011', 'BUYER', 'Source Code Mengalami Build Error', 'Kode yang dikirimkan penjual gagal dikompilasi.', 'RESOLVED', 'RELEASE_TO_SELLER', 'Penjual telah mengirimkan panduan instalasi yang benar dan kode berjalan lancar.', 0, 'a0000000-0000-0000-0000-000000000001', NOW() - INTERVAL '28 days', NOW() - INTERVAL '27 days'),
+('d0000000-0000-0000-0000-000000000008', 'b0000000-0000-0000-0000-000000000007', 'a0000000-0000-0000-0000-000000000015', 'BUYER', 'Steam Deck Lecet Fisik pada Bodi Belakang', 'Barang terdapat goresan dalam saat tiba di alamat pembeli.', 'UNDER_REVIEW', NULL, NULL, NULL, 'a0000000-0000-0000-0000-000000000002', NOW() - INTERVAL '2 days', NOW()),
+('d0000000-0000-0000-0000-000000000009', 'b0000000-0000-0000-0000-000000000008', 'a0000000-0000-0000-0000-000000000017', 'BUYER', 'Server K8s Tidak Sesuai Spek High Availability', 'Node worker hanya 2 bukan 5 sesuai kesepakatan.', 'OPEN', NULL, NULL, NULL, NULL, NOW() - INTERVAL '1 days', NOW()),
+('d0000000-0000-0000-0000-000000000010', 'b0000000-0000-0000-0000-000000000010', 'a0000000-0000-0000-0000-000000000021', 'BUYER', 'Followers Instagram Turun Drastis Pasca Serah Terima', 'Jumlah pengikut berkurang 10 ribu dalam 24 jam.', 'OPEN', NULL, NULL, NULL, NULL, NOW() - INTERVAL '12 hours', NOW()),
+('d0000000-0000-0000-0000-000000000011', 'b0000000-0000-0000-0000-000000000013', 'a0000000-0000-0000-0000-000000000004', 'BUYER', 'Kode EPP Auth Code Domain Kadaluarsa', 'Penjual belum memperbarui kode transfer domain.', 'CLOSED', NULL, 'Diselesaikan secara mandiri oleh kedua belah pihak.', NULL, NULL, NOW() - INTERVAL '18 days', NOW() - INTERVAL '17 days'),
+('d0000000-0000-0000-0000-000000000012', 'b0000000-0000-0000-0000-000000000014', 'a0000000-0000-0000-0000-000000000006', 'BUYER', 'Voucher Tokopedia Sudah Terpakai', 'Voucher digital tidak dapat di-redeem.', 'RESOLVED', 'REFUND_BUYER', 'Voucher terbukti tidak dapat digunakan.', 1919000, 'a0000000-0000-0000-0000-000000000001', NOW() - INTERVAL '16 days', NOW() - INTERVAL '15 days'),
+('d0000000-0000-0000-0000-000000000013', 'b0000000-0000-0000-0000-000000000015', 'a0000000-0000-0000-0000-000000000010', 'BUYER', 'Joy-Con Kiri Nintendo Switch Mengalami Drift', 'Analog joystick drift ke arah atas saat dimainkan.', 'RESOLVED', 'RELEASE_TO_SELLER', 'Penjual menyetujui penggantian Joy-Con baru dan pembeli sepakat dana dirilis.', 0, 'a0000000-0000-0000-0000-000000000002', NOW() - INTERVAL '11 days', NOW() - INTERVAL '10 days'),
+('d0000000-0000-0000-0000-000000000014', 'b0000000-0000-0000-0000-000000000016', 'a0000000-0000-0000-0000-000000000014', 'BUYER', 'Target Ranking SEO Belum Tercapai', 'Peringkat halaman 1 belum terpenuhi dalam 30 hari.', 'CLOSED', NULL, 'Dibatalkan bersama karena pembeli mengubah nama domain di tengah pengerjaan.', NULL, NULL, NOW() - INTERVAL '20 days', NOW() - INTERVAL '19 days'),
+('d0000000-0000-0000-0000-000000000015', 'b0000000-0000-0000-0000-000000000018', 'a0000000-0000-0000-0000-000000000022', 'BUYER', 'Monitor Asus ROG Mengalami Dead Pixel 3 Titik', 'Terdapat titik mati warna hijau di sudut kanan layar.', 'UNDER_REVIEW', NULL, NULL, NULL, 'a0000000-0000-0000-0000-000000000001', NOW() - INTERVAL '1 days', NOW()),
+('d0000000-0000-0000-0000-000000000016', 'b0000000-0000-0000-0000-000000000019', 'a0000000-0000-0000-0000-000000000005', 'BUYER', 'Bounty Akun Blox Fruits Tidak Sesuai', 'Bounty tercatat 10 juta bukan 15 juta.', 'RESOLVED', 'RELEASE_TO_SELLER', 'Klaim pembeli tidak terbukti setelah pengecekan screenshot in-game.', 0, 'a0000000-0000-0000-0000-000000000002', NOW() - INTERVAL '7 days', NOW() - INTERVAL '6 days'),
+('d0000000-0000-0000-0000-000000000017', 'b0000000-0000-0000-0000-000000000020', 'a0000000-0000-0000-0000-000000000008', 'BUYER', 'File Desain Landing Page Corrupt Saat Diekstrak', 'Arsip zip tidak dapat dibuka.', 'RESOLVED', 'RELEASE_TO_SELLER', 'Penjual telah mengirimkan tautan Google Drive alternatif yang dapat diunduh sempurna.', 0, 'a0000000-0000-0000-0000-000000000001', NOW() - INTERVAL '5 days', NOW() - INTERVAL '4 days'),
+('d0000000-0000-0000-0000-000000000018', 'b0000000-0000-0000-0000-000000000021', 'a0000000-0000-0000-0000-000000000012', 'BUYER', 'Kualitas Audio Voice Over Terdapat Background Noise', 'Rekaman suara berdengung dan tidak jernih.', 'OPEN', NULL, NULL, NULL, NULL, NOW() - INTERVAL '18 hours', NOW()),
+('d0000000-0000-0000-0000-000000000019', 'b0000000-0000-0000-0000-000000000022', 'a0000000-0000-0000-0000-000000000017', 'BUYER', 'Bantalan Headphone Sony Sobek Sedikit', 'Deskripsi mencantumkan kondisi 98% no minus.', 'OPEN', NULL, NULL, NULL, NULL, NOW() - INTERVAL '2 hours', NOW()),
+('d0000000-0000-0000-0000-000000000020', 'b0000000-0000-0000-0000-000000000006', 'a0000000-0000-0000-0000-000000000013', 'BUYER', 'Akun Genshin Tidak Bisa Di-link Nomor Telepon', 'Nomor telepon lama penjual masih terikat.', 'OPEN', NULL, NULL, NULL, NULL, NOW() - INTERVAL '1 days', NOW())
 ON CONFLICT DO NOTHING;
 
 INSERT INTO dispute.dispute_evidence (

@@ -38,9 +38,17 @@ public class WalletResource {
     // ─── 1. GAZE UPON Wallet (GET BALANCE) ───────────────────────────────────
 
     @GET
-    @Path("/Wallet")
+    @Path("/balance")
     @Authenticated
     @Operation(summary = "Get Wallet balance and financial summary")
+    public Uni<Response> getBalance() {
+        return getTreasury();
+    }
+
+    @GET
+    @Path("/Wallet")
+    @Authenticated
+    @Operation(summary = "Get Wallet balance and financial summary (alias)")
     public Uni<Response> getTreasury() {
         return WalletService.getOrCreateTreasury(currentPilgrimId())
                 .map(res -> Response.ok(ApiResponse.ok(res)).build());
@@ -49,9 +57,17 @@ public class WalletResource {
     // ─── 2. MAKE TopUpOrder (XENDIT TOP-UP) ─────────────────────────────────────
 
     @POST
+    @Path("/topup")
+    @Authenticated
+    @Operation(summary = "Create topup request via Xendit")
+    public Uni<Response> makeTopup(@Valid CreateTopUpRequest req) {
+        return makeOffering(req);
+    }
+
+    @POST
     @Path("/TopUpOrder")
     @Authenticated
-    @Operation(summary = "Create an TopUpOrder top-up request via Xendit")
+    @Operation(summary = "Create an TopUpOrder top-up request via Xendit (alias)")
     public Uni<Response> makeOffering(@Valid CreateTopUpRequest req) {
         return WalletService.makeOffering(currentPilgrimId(), req)
                 .map(res -> Response.status(Response.Status.CREATED)
@@ -61,13 +77,52 @@ public class WalletResource {
     // ─── 3. REQUEST WITHDRAWAL (XENDIT DISBURSEMENT) ──────────────────────────
 
     @POST
-    @Path("/withdrawal")
+    @Path("/withdraw")
     @Authenticated
     @Operation(summary = "Request bank account withdrawal via Xendit Disbursement")
+    public Uni<Response> requestWithdraw(@Valid WithdrawalRequest req) {
+        return requestWithdrawal(req);
+    }
+
+    @POST
+    @Path("/withdrawal")
+    @Authenticated
+    @Operation(summary = "Request bank account withdrawal via Xendit Disbursement (alias)")
     public Uni<Response> requestWithdrawal(@Valid WithdrawalRequest req) {
         return WalletService.requestWithdrawal(currentPilgrimId(), req)
                 .map(res -> Response.ok(ApiResponse.ok(res)).build());
     }
+
+    // ─── 3b. BANK ACCOUNTS ────────────────────────────────────────────────────
+
+    @GET
+    @Path("/bank-accounts")
+    @Authenticated
+    @Operation(summary = "List verified linked bank accounts")
+    public Uni<Response> getBankAccounts() {
+        return WalletService.getBankAccounts(currentPilgrimId())
+                .map(list -> Response.ok(ApiResponse.ok(list)).build());
+    }
+
+    @POST
+    @Path("/bank-accounts")
+    @Authenticated
+    @Operation(summary = "Link a new bank account")
+    public Uni<Response> addBankAccount(@Valid CreateBankAccountRequest req) {
+        return WalletService.addBankAccount(currentPilgrimId(), req)
+                .map(res -> Response.status(Response.Status.CREATED)
+                        .entity(ApiResponse.ok(res)).build());
+    }
+
+    @DELETE
+    @Path("/bank-accounts/{id}")
+    @Authenticated
+    @Operation(summary = "Unlink / soft-delete a bank account")
+    public Uni<Response> deleteBankAccount(@PathParam("id") UUID id) {
+        return WalletService.deleteBankAccount(currentPilgrimId(), id)
+                .map(v -> Response.ok(ApiResponse.ok(Map.of("message", "Bank account unlinked"))).build());
+    }
+
 
     // ─── 4. P2P TITHE TRANSFER ────────────────────────────────────────────────
 

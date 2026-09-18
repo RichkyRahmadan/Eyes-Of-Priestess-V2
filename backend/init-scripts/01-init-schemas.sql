@@ -153,6 +153,7 @@ CREATE TABLE IF NOT EXISTS wallet.transactions (
     reference_id        VARCHAR(100),
     metadata            JSONB,
     created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     settled_at          TIMESTAMPTZ,
     failed_at           TIMESTAMPTZ,
     fail_reason         TEXT
@@ -326,7 +327,9 @@ CREATE TABLE IF NOT EXISTS chat.messages (
     is_edited           BOOLEAN NOT NULL DEFAULT FALSE,
     edited_at           TIMESTAMPTZ,
     deleted_at          TIMESTAMPTZ,
-    sent_at             TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    sent_at             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_messages_chat_room_id ON chat.messages(chat_room_id);
@@ -402,7 +405,7 @@ CREATE TABLE IF NOT EXISTS dispute.admin_decisions (
 INSERT INTO auth.users (
     id, email, username, full_name, role, is_verified, is_pin_set
 ) VALUES (
-    '00000000-0000-0000-0000-000000000001',
+    'a0000000-0000-0000-0000-000000000001',
     'admin@eyesofpriestess.com',
     'admin',
     'System Admin',
@@ -414,7 +417,7 @@ INSERT INTO auth.users (
 INSERT INTO wallet.wallets (
     user_id, available_balance, escrow_balance, currency
 ) VALUES (
-    '00000000-0000-0000-0000-000000000001',
+    'a0000000-0000-0000-0000-000000000001',
     1000000000,
     0,
     'IDR'

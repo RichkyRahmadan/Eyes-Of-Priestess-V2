@@ -78,6 +78,16 @@ public class XenditService {
 
         LOG.infof("[XENDIT] Creating Invoice: external_id=%s, amount=%s", externalId, amount);
 
+        if (apiKey == null || apiKey.contains("dummy") || apiKey.contains("development")) {
+            LOG.infof("[XENDIT MOCK] Mock invoice generated for dev/test: %s", externalId);
+            return Uni.createFrom().item(new JsonObject()
+                    .put("id", "inv_" + UUID.randomUUID().toString().replace("-", "").substring(0, 16))
+                    .put("external_id", externalId)
+                    .put("invoice_url", "https://checkout-staging.xendit.co/v2/" + UUID.randomUUID())
+                    .put("expiry_date", java.time.Instant.now().plusSeconds(86400).toString())
+                    .put("status", "PENDING"));
+        }
+
         return webClient.post("/v2/invoices")
                 .putHeader("Authorization", authHeader)
                 .putHeader("Content-Type", "application/json")

@@ -166,7 +166,7 @@ npm run dev
 ```
 
 Aplikasi frontend siap diakses di: **`http://localhost:5173`**  
-Kong API Gateway beroperasi di: **`http://localhost:8080/api/v1`**
+Kong API Gateway beroperasi di: **`http://localhost:8000/api/v1`**
 
 ---
 
@@ -218,4 +218,4 @@ Setiap microservice mengekspos dokumentasi OpenAPI interaktif yang dapat diakses
 - Wallet Service: `http://localhost:8082/q/swagger-ui`
 - Room Service: `http://localhost:8083/q/swagger-ui`
 - Dispute Service: `http://localhost:8085/q/swagger-ui`
-- Melalui Gateway: `http://localhost:8080/api/v1/{service}/q/swagger-ui`
+- Melalui Gateway: `http://localhost:8000/api/v1/{service}/q/swagger-ui`

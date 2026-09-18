@@ -123,6 +123,8 @@ public class User extends PanacheEntityBase {
         p.fullName = fullName;
         p.passwordHash = passwordHash;
         p.pinHash = pinHash;
+        p.attunedAt = Instant.now();
+        p.updatedAt = Instant.now();
         return p;
     }
 

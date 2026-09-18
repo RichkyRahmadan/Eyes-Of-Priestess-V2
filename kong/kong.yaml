@@ -71,12 +71,6 @@ services:
           fault_tolerant: true
           hide_client_headers: false
 
-      - name: request-id
-        config:
-          generator: uuid#counter
-          header_name: X-Request-ID
-          echo_downstream: true
-
   # ── Wallet Service ────────────────────────────────────────────────────────────
   - name: wallet-service
     url: http://wallet-service:8082
@@ -121,12 +115,6 @@ services:
           policy: local
           fault_tolerant: true
 
-      - name: request-id
-        config:
-          generator: uuid#counter
-          header_name: X-Request-ID
-          echo_downstream: true
-
   # ── Room Service ─────────────────────────────────────────────────────────────
   - name: room-service
     url: http://room-service:8083
@@ -160,12 +148,6 @@ services:
           policy: local
           fault_tolerant: true
 
-      - name: request-id
-        config:
-          generator: uuid#counter
-          header_name: X-Request-ID
-          echo_downstream: true
-
   # ── Chat Service (REST + WebSocket) ───────────────────────────────────────────
   - name: chat-service
     url: http://chat-service:8084
@@ -178,7 +160,7 @@ services:
           - /api/v1/chat
         strip_path: false
         methods: [GET, POST, OPTIONS]
-        protocols: [http, https, ws, wss]   # WebSocket support
+        protocols: [http, https]   # WebSocket handshake over HTTP/HTTPS
 
     plugins:
       - name: cors
@@ -234,16 +216,10 @@ services:
           policy: local
           fault_tolerant: true
 
-      - name: request-id
-        config:
-          generator: uuid#counter
-          header_name: X-Request-ID
-          echo_downstream: true
-
 # ─── GLOBAL PLUGINS ───────────────────────────────────────────────────────────
 plugins:
   - name: correlation-id
     config:
-      header_name: X-Correlation-ID
-      generator: uuid
+      header_name: X-Request-ID
+      generator: uuid#counter
       echo_downstream: true

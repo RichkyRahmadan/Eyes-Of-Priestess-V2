@@ -2,6 +2,7 @@
   import { page } from '$app/state';
   import Input from '$lib/components/ui/Input.svelte';
   import Button from '$lib/components/ui/Button.svelte';
+  import FileUpload from '$lib/components/ui/FileUpload.svelte';
   import { roomApi } from '$lib/api';
   import { addNotification } from '$lib/stores/notifications';
   import { goto } from '$app/navigation';
@@ -9,6 +10,7 @@
 
   let notes = $state('');
   let proofUrls = $state<string[]>(['']);
+  let uploadedFiles = $state<any[]>([]);
   let loading = $state(false);
   let error = $state('');
 
@@ -28,6 +30,11 @@
     e.preventDefault();
     error = '';
     const filteredUrls = proofUrls.map((u) => u.trim()).filter(Boolean);
+    const fileProofUrls = uploadedFiles
+      .filter((f) => f.status === 'completed' && f.url)
+      .map((f) => f.url);
+
+    const allProofs = [...filteredUrls, ...fileProofUrls];
 
     if (!notes.trim()) {
       error = 'Catatan pengiriman wajib diisi';
@@ -36,16 +43,16 @@
 
     loading = true;
     try {
-      const roomId = page.params.id;
+      const roomId = page.params.id!;
       const updated = await roomApi.deliverRoom(roomId, {
         notes,
-        proofUrls: filteredUrls
+        proofUrls: allProofs
       }) as Room;
 
       addNotification({
         type: 'success',
         title: 'Bukti Pengiriman Terkirim',
-        message: 'Status room telah diperbarui ke DELEVERED'
+        message: 'Status room telah diperbarui ke DELIVERED'
       });
       goto(`/rooms/${roomId}`);
     } catch (err: unknown) {
@@ -96,10 +103,19 @@
         ></textarea>
       </div>
 
+      <!-- File Upload Component -->
+      <FileUpload
+        label="Unggah Berkas Bukti Serah Terima"
+        hint="Unggah bukti gambar (.jpg, .png, .webp) atau dokumen serah terima (.pdf) maks 10MB"
+        accept="image/jpeg,image/png,image/webp,application/pdf"
+        multiple={true}
+        bind:files={uploadedFiles}
+      />
+
       <!-- Proof URLs -->
       <div class="flex flex-col gap-2">
-        <label class="font-sans text-[13px] font-medium text-[var(--color-ink)] block">
-          URL Bukti Gambar / Tangkapan Layar (Opsional)
+        <label for="proof-url-0" class="font-sans text-[13px] font-medium text-[var(--color-ink)] block">
+          Atau Masukkan Tautan URL Bukti (Opsional)
         </label>
 
         {#each proofUrls as url, idx}

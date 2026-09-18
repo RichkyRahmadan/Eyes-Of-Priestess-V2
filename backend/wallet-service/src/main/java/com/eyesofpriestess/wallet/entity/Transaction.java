@@ -82,7 +82,7 @@ public class Transaction extends PanacheEntityBase {
     public Instant completedAt;
 
     public enum ChronicleStatus {
-        PENDING, PROCESSING, COMPLETED, FAILED, CANCELLED
+        PENDING, PROCESSING, COMPLETED, SUCCESS, FAILED, CANCELLED
     }
 
     // Factory

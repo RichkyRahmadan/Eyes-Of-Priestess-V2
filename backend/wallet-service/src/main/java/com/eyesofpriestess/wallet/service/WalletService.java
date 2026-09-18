@@ -8,6 +8,7 @@ import com.eyesofpriestess.wallet.event.TopUpPaidEvent;
 import com.eyesofpriestess.wallet.exception.WalletException;
 import com.eyesofpriestess.wallet.repository.*;
 import io.quarkus.elytron.security.common.BcryptUtil;
+import io.quarkus.hibernate.reactive.panache.common.WithSession;
 import io.quarkus.hibernate.reactive.panache.common.WithTransaction;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -42,6 +43,7 @@ public class WalletService {
     @Inject TopUpOrderRepository offeringRepo;
     @Inject WithdrawalRepository withdrawalRepo;
     @Inject TransactionRepository chronicleRepo;
+    @Inject BankAccountRepository bankAccountRepo;
 
     @Inject XenditService xenditService;
 
@@ -91,15 +93,14 @@ public class WalletService {
 
             return treasuryRepo.findByPilgrimId(userId)
                     .flatMap(treasuryOpt -> {
-                        Wallet wallet = treasuryOpt.orElseGet(() -> {
-                            Wallet t = Wallet.forPilgrim(userId);
-                            treasuryRepo.persist(t);
-                            return t;
-                        });
+                        Uni<Wallet> walletUni = treasuryOpt.isPresent()
+                                ? Uni.createFrom().item(treasuryOpt.get())
+                                : treasuryRepo.persist(Wallet.forPilgrim(userId));
 
-                        TopUpOrder topUpOrder = new TopUpOrder();
-                        topUpOrder.treasuryId = wallet.id;
-                        topUpOrder.amount = req.amount;
+                        return walletUni.flatMap(wallet -> {
+                            TopUpOrder topUpOrder = new TopUpOrder();
+                            topUpOrder.treasuryId = wallet.id;
+                            topUpOrder.amount = req.amount;
                         topUpOrder.tithe = BigDecimal.ZERO; // No tithe on top-ups
                         topUpOrder.gateway = "XENDIT";
                         topUpOrder.paymentMethod = req.method;
@@ -121,6 +122,7 @@ public class WalletService {
                                 )
                                 .flatMap(offeringRepo::persist)
                                 .map(TopUpResponse::from);
+                        });
                     });
         });
     }
@@ -446,6 +448,7 @@ public class WalletService {
 
     // ─── 9. GET transactions (AUDIT HISTORY) ───────────────────────────────────
 
+    @WithSession
     public Uni<List<TransactionResponse>> getChronicles(UUID userId, int page, int size) {
         return treasuryRepo.findByPilgrimId(userId)
                 .flatMap(opt -> {
@@ -454,4 +457,46 @@ public class WalletService {
                             .map(list -> list.stream().map(TransactionResponse::from).toList());
                 });
     }
+
+    // ─── 10. BANK ACCOUNTS CRUD ───────────────────────────────────────────────
+
+    @WithSession
+    public Uni<List<BankAccountResponse>> getBankAccounts(UUID userId) {
+        return bankAccountRepo.findActiveByUserId(userId)
+                .map(list -> list.stream().map(BankAccountResponse::from).toList());
+    }
+
+    @WithTransaction
+    public Uni<BankAccountResponse> addBankAccount(UUID userId, CreateBankAccountRequest req) {
+        boolean setPrimary = Boolean.TRUE.equals(req.isPrimary);
+        Uni<Void> clearPrev = setPrimary
+                ? bankAccountRepo.clearPrimary(userId)
+                : Uni.createFrom().voidItem();
+
+        return clearPrev.flatMap(v -> {
+            BankAccount acc = new BankAccount();
+            acc.userId = userId;
+            acc.bankCode = req.bankCode;
+            acc.bankName = req.bankName != null ? req.bankName : req.bankCode;
+            acc.accountNumber = req.accountNumber;
+            acc.accountHolderName = req.accountHolderName;
+            acc.isPrimary = setPrimary;
+            acc.isVerified = true;
+
+            return bankAccountRepo.persist(acc).map(BankAccountResponse::from);
+        });
+    }
+
+    @WithTransaction
+    public Uni<Void> deleteBankAccount(UUID userId, UUID accountId) {
+        return bankAccountRepo.findByIdAndUser(accountId, userId)
+                .flatMap(acc -> {
+                    if (acc == null) {
+                        return Uni.createFrom().failure(WalletException.notFound("ACCOUNT_NOT_FOUND", "Bank account not found"));
+                    }
+                    acc.deletedAt = Instant.now();
+                    return bankAccountRepo.persist(acc).replaceWithVoid();
+                });
+    }
 }
+
