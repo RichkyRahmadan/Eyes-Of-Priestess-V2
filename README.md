@@ -8,6 +8,9 @@
 [![TailwindCSS 3.x](https://img.shields.io/badge/TailwindCSS-3.x-38bdf8.svg)](https://tailwindcss.com/)
 [![PostgreSQL 15](https://img.shields.io/badge/PostgreSQL-15-336791.svg)](https://www.postgresql.org/)
 [![Kong Gateway 3.6](https://img.shields.io/badge/Kong-3.6-003459.svg)](https://konghq.com/)
+[![Vercel Deployment](https://img.shields.io/badge/Vercel-Live%20Demo-black?logo=vercel)](https://eyes-of-priestess-v2.vercel.app/)
+
+> 🌐 **Live Demo Frontend:** [https://eyes-of-priestess-v2.vercel.app/](https://eyes-of-priestess-v2.vercel.app/)
 
 **EyesOfPriestess** adalah platform escrow e-wallet berbasis arsitektur microservices terdistribusi untuk mengamankan transaksi peer-to-peer (P2P marketplace, akun game, produk digital, dan jasa). Aplikasi ini mengeliminasi kebutuhan jasa rekening bersama (*rekber*) manual pihak ketiga dengan menerapkan sistem **Covenant Room** otomatis, perlindungan saldo terkunci (*escrow balance*), sengketa (*dispute resolution*), dan obrolan instan terenkripsi.
 
@@ -172,7 +175,8 @@ npm install
 npm run dev
 ```
 
-Aplikasi frontend siap diakses di: **`http://localhost:5173`**  
+Aplikasi frontend siap diakses secara lokal di: **`http://localhost:5173`**  
+Atau akses versi live production di Vercel: **[https://eyes-of-priestess-v2.vercel.app/](https://eyes-of-priestess-v2.vercel.app/)**  
 Kong API Gateway beroperasi di: **`http://localhost:8000/api/v1`**
 
 ---
