@@ -4,8 +4,8 @@ import { goto } from '$app/navigation';
 import { authStore } from '$lib/stores/auth';
 import type { ApiError } from '$lib/types';
 
-// Use same-origin proxy in browser for zero-CORS preflight & instant connection; 127.0.0.1 on server
-const API_BASE = browser ? '/api/v1' : 'http://127.0.0.1:8000/api/v1';
+// Use configured public base URL, or same-origin proxy in browser (/api/v1), or local loopback on server
+const API_BASE = (import.meta.env.PUBLIC_API_BASE_URL as string | undefined) || (browser ? '/api/v1' : 'http://127.0.0.1:8000/api/v1');
 
 export interface ApiFetchOptions extends RequestInit {
   bypassCache?: boolean;
