@@ -82,7 +82,7 @@
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-callback-token': 'aK5Aa4QpBB7U9zbmDvF1Dm888Vpkb7A11Du4TLLL4S60Y98L'
+          'x-callback-token': 'xnd_webhook_dummy'
         },
         body: JSON.stringify({
           event: 'invoice.paid',

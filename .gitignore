@@ -14,10 +14,27 @@ build/
 dist/
 .output/
 
-# Environment
+# Environment & Secrets
 .env
 .env.local
 .env.*
+!.env.example
+secrets/
+private/
+credentials/
+*.key
+*.pem.key
+*.p12
+*.pfx
+*.jks
+
+# Logs & Temporary
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.bak
+*.orig
 
 # IDEs & OS
 .idea/
@@ -25,3 +42,4 @@ dist/
 *.swp
 *.DS_Store
 .trash*
+Thumbs.db
